@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Well Well · Acompañamiento hospitalario</title>
+  <meta name="description" content="Well Well ayuda a pacientes y a sus familias a seguir su tratamiento, medicamentos, citas y a entender términos médicos, y le da al personal del hospital un panel para mantenerlos informados." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,400;1,9..144,600&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- ============ NAVEGACIÓN ============ -->
+  <header class="nav">
+    <a href="#inicio" class="logo">
+      <span class="logo-mark" aria-hidden="true">
+        <svg viewBox="0 0 40 40"><path d="M20 34s-12-7.5-12-16a7 7 0 0 1 12-4.9A7 7 0 0 1 32 18c0 8.5-12 16-12 16z" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/><path d="M11 20h5l2-4 4 8 2-4h5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </span>
+      Well Well
+    </a>
+    <nav class="nav-links" id="navLinks">
+      <a href="#funciones">Funciones</a>
+      <a href="#como-funciona">Cómo funciona</a>
+      <a href="#asistente">Asistente IA</a>
+      <a href="#hospitales">Para hospitales</a>
+    </nav>
+    <a href="#ingresar" class="btn btn-small" id="navCta">Ingresar</a>
+    <button class="nav-toggle" id="navToggle" aria-label="Abrir menú"><span></span><span></span></button>
+  </header>
+
+  <main id="landing">
+
+    <!-- ============ HERO ============ -->
+    <section class="hero" id="inicio">
+      <div class="hero-text">
+        <p class="scribble">para pacientes, familias y personal</p>
+        <h1>Tu estancia en el hospital, <em>contada con calma.</em></h1>
+        <p class="lead">Well Well reúne en un solo lugar los procedimientos, medicamentos, citas, visitas médicas y el expediente de cada paciente — explicados en palabras que todos entienden.</p>
+        <ul class="hero-points">
+          <li>Línea de tiempo de procedimientos</li>
+          <li>Medicamentos y horarios</li>
+          <li>Citas, áreas y doctores</li>
+          <li>Asistente que explica términos médicos</li>
+        </ul>
+      </div>
+
+      <!-- Tarjeta de ingreso -->
+      <div class="login-wrap" id="ingresar">
+        <div class="paper login-card">
+          <span class="tape tape-tl"></span>
+          <span class="tape tape-br"></span>
+
+          <div class="role-tabs" role="tablist">
+            <button type="button" role="tab" class="role-tab active" data-role="patient" aria-selected="true">Paciente / familia</button>
+            <button type="button" role="tab" class="role-tab" data-role="staff" aria-selected="false">Personal del hospital</button>
+          </div>
+
+          <!-- Paciente -->
+          <div class="role-pane" id="patientPane">
+            <p class="scribble small">paso 1</p>
+            <h2>Ingresa con tu ID de paciente</h2>
+            <p class="muted">Cada paciente recibe un ID único en su pulsera, en su hoja de admisión o en su carnet de citas.</p>
+            <form id="loginForm" novalidate>
+              <label for="patientId">ID de paciente</label>
+              <input id="patientId" name="patientId" type="text" placeholder="WW-0000-00" autocomplete="off" maxlength="10" required />
+              <p class="form-error" id="loginError" role="alert"></p>
+              <button type="submit" class="btn btn-full">Ver mi proceso</button>
+            </form>
+            <p class="demo-hint">¿Quieres probar? Usa <button type="button" class="link-btn" data-demo="WW-2048-17">WW-2048-17</button> (internada) o <button type="button" class="link-btn" data-demo="WW-3301-09">WW-3301-09</button> (con cita)</p>
+          </div>
+
+          <!-- Personal -->
+          <div class="role-pane" id="staffPane" hidden>
+            <p class="scribble small">acceso clínico</p>
+            <h2>Ingreso del personal</h2>
+            <p class="muted">Médicos, enfermería y personal administrativo del hospital.</p>
+            <form id="staffForm" novalidate>
+              <label for="staffId">ID de personal</label>
+              <input id="staffId" type="text" placeholder="MED-0000" autocomplete="off" maxlength="8" />
+              <label for="staffCode">Código de acceso</label>
+              <input id="staffCode" type="password" placeholder="••••" autocomplete="off" maxlength="8" />
+              <p class="form-error" id="staffError" role="alert"></p>
+              <button type="submit" class="btn btn-full btn-brown">Entrar al panel clínico</button>
+            </form>
+            <p class="demo-hint">Cuenta de prueba: <button type="button" class="link-btn" id="staffDemo">MED-0042 · 2026</button></p>
+          </div>
+        </div>
+        <div class="polaroid hero-polaroid" aria-hidden="true">
+          <div class="polaroid-img">
+            <svg viewBox="0 0 120 90"><circle cx="88" cy="24" r="10" fill="#C2A499"/><path d="M0 90 L30 50 L50 68 L75 40 L120 90Z" fill="#677980"/><path d="M0 90 L40 62 L70 90Z" fill="#486C79"/></svg>
+          </div>
+          <span class="scribble">¡ya casi a casa!</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ FUNCIONES ============ -->
+    <section class="section" id="funciones">
+      <div class="section-head">
+        <p class="scribble">todo en una libreta</p>
+        <h2>Lo que puedes ver al ingresar</h2>
+      </div>
+      <div class="features">
+        <article class="paper feature tilt-l">
+          <span class="tape"></span>
+          <div class="feature-icon">
+            <svg viewBox="0 0 32 32"><path d="M4 24 L11 15 L17 19 L28 7" /><circle cx="11" cy="15" r="2"/><circle cx="17" cy="19" r="2"/><circle cx="28" cy="7" r="2"/></svg>
+          </div>
+          <h3>Seguimiento de procedimientos</h3>
+          <p>Una línea de tiempo con los procedimientos realizados y los que vienen, quién es el responsable y a qué área ir.</p>
+        </article>
+        <article class="paper feature tilt-r lined">
+          <span class="tape tape-alt"></span>
+          <div class="feature-icon">
+            <svg viewBox="0 0 32 32"><rect x="5" y="12" width="22" height="9" rx="4.5" transform="rotate(-35 16 16)"/><path d="M12.5 9.5 L19.5 22.5" /></svg>
+          </div>
+          <h3>Medicamentos</h3>
+          <p>Qué medicamento recibes, para qué sirve, la dosis y a qué hora toca la siguiente toma.</p>
+        </article>
+        <article class="paper feature tilt-l grid-paper">
+          <span class="tape"></span>
+          <div class="feature-icon">
+            <svg viewBox="0 0 32 32"><rect x="5" y="7" width="22" height="20" rx="3"/><path d="M5 13h22M11 4v6M21 4v6"/><path d="M11 19l3 3 6-6"/></svg>
+          </div>
+          <h3>Citas y recordatorios</h3>
+          <p>Qué sigue después, a dónde asistir, qué doctores pasarán hoy por tu habitación y mensajes del equipo médico.</p>
+        </article>
+        <article class="paper feature tilt-r">
+          <span class="tape tape-alt"></span>
+          <div class="feature-icon">
+            <svg viewBox="0 0 32 32"><path d="M6 8h20v13H14l-6 5v-5H6z"/><path d="M11 13h10M11 17h6"/></svg>
+          </div>
+          <h3>Asistente con IA</h3>
+          <p>Pregunta qué significa “biopsia” o “hemograma” y recibe una explicación clara, para niños y para papás.</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- ============ CÓMO FUNCIONA ============ -->
+    <section class="section steps-section" id="como-funciona">
+      <div class="section-head">
+        <p class="scribble">sencillo, en tres pasos</p>
+        <h2>Cómo funciona</h2>
+      </div>
+      <ol class="steps">
+        <li class="step">
+          <span class="step-num">01</span>
+          <h3>Recibe tu ID</h3>
+          <p>El hospital asigna un ID único a cada paciente, esté internado o venga a una cita.</p>
+        </li>
+        <li class="step">
+          <span class="step-num">02</span>
+          <h3>Ingresa</h3>
+          <p>Desde el celular, la tablet de la habitación o cualquier computadora.</p>
+        </li>
+        <li class="step">
+          <span class="step-num">03</span>
+          <h3>Acompaña el proceso</h3>
+          <p>El equipo médico actualiza la información y tú la ves al momento.</p>
+        </li>
+      </ol>
+    </section>
+
+    <!-- ============ ASISTENTE (vista previa) ============ -->
+    <section class="section assistant-preview" id="asistente">
+      <div class="assistant-copy">
+        <p class="scribble">palabras difíciles, explicadas</p>
+        <h2>Un asistente que habla como tú</h2>
+        <p>Los términos médicos pueden asustar. Nuestro asistente los traduce a un lenguaje cercano, adaptado a la edad del paciente, y siempre recuerda consultar cualquier duda con el equipo médico.</p>
+        <div class="chips" id="previewChips">
+          <button class="chip" data-q="¿Qué es una biopsia?">¿Qué es una biopsia?</button>
+          <button class="chip" data-q="¿Qué significa ayuno?">¿Qué significa ayuno?</button>
+          <button class="chip" data-q="¿Qué es un catéter?">¿Qué es un catéter?</button>
+        </div>
+      </div>
+      <div class="paper chat-card">
+        <span class="tape tape-tl"></span>
+        <div class="chat-head">
+          <span class="dot"></span> Asistente Well Well
+        </div>
+        <div class="chat-log" id="previewLog">
+          <div class="msg bot">¡Hola! Pregúntame cualquier palabra médica que no entiendas. 🌿</div>
+        </div>
+        <form class="chat-form" id="previewForm">
+          <input type="text" id="previewInput" placeholder="Escribe una palabra o pregunta…" autocomplete="off" />
+          <button type="submit" class="btn btn-icon" aria-label="Enviar">
+            <svg viewBox="0 0 24 24"><path d="M4 12l16-8-6 16-2-6z"/></svg>
+          </button>
+        </form>
+      </div>
+    </section>
+
+    <!-- ============ HOSPITALES ============ -->
+    <section class="section hospitals" id="hospitales">
+      <div class="paper hospital-note lined">
+        <span class="tape"></span>
+        <span class="stamp">pediatría</span>
+        <h2>Pensado para hospitales infantiles</h2>
+        <p>Médicos, enfermería y administración tienen su propio panel clínico. Desde ahí actualizan la información una sola vez y cada familia la ve en su cuenta.</p>
+        <ul class="staff-points">
+          <li>Asignar procedimientos, responsables y áreas — a mano o con planes automáticos</li>
+          <li>Agendar citas para pacientes internados o de consulta externa, con ubicación exacta</li>
+          <li>Enviar mensajes a la familia</li>
+          <li>Subir el expediente digitalizado y compartir datos clínicos</li>
+        </ul>
+        <div class="stats">
+          <div><strong>1</strong><span>ID único por paciente</span></div>
+          <div><strong>24/7</strong><span>acceso para la familia</span></div>
+          <div><strong>0</strong><span>papeles perdidos</span></div>
+        </div>
+        <div class="hospital-actions">
+          <a href="#ingresar" class="btn btn-brown" data-open-staff>Ingreso del personal</a>
+          <a href="mailto:contacto@wellwell.app" class="btn btn-outline">Solicitar una demostración</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ============ PANEL DEL PACIENTE ============ -->
+  <main id="portal" class="portal" hidden>
+    <div class="portal-head">
+      <div>
+        <p class="scribble" id="greetingNote">hola de nuevo</p>
+        <h1 id="patientName">Paciente</h1>
+        <p class="muted" id="patientMeta"></p>
+      </div>
+      <button class="btn btn-outline btn-small" data-logout>Cerrar sesión</button>
+    </div>
+
+    <div class="portal-grid">
+      <!-- Línea de tiempo -->
+      <section class="paper panel panel-wide">
+        <span class="tape tape-tl"></span>
+        <div class="panel-title">
+          <h2>Mi camino</h2>
+          <div class="legend">
+            <span><i class="lg done"></i>Realizado</span>
+            <span><i class="lg next"></i>Próximo</span>
+            <span><i class="lg future"></i>Programado</span>
+          </div>
+        </div>
+        <div class="progress-row">
+          <div class="progress-bar"><span id="progressFill"></span></div>
+          <span class="scribble small" id="progressLabel"></span>
+        </div>
+        <div class="timeline-scroll">
+          <svg id="timelineSvg" class="timeline-svg" role="img" aria-label="Línea de tiempo de procedimientos"></svg>
+        </div>
+        <p class="empty-note" id="timelineEmpty" hidden>Todavía no tienes procedimientos programados. Cuando el equipo médico agregue alguno, aparecerá aquí.</p>
+        <div class="proc-detail" id="procDetail"></div>
+      </section>
+
+      <!-- Hoy -->
+      <section class="paper panel lined" id="visitsPanel">
+        <span class="tape tape-alt"></span>
+        <h2>Hoy en tu habitación</h2>
+        <ul class="visits" id="visitsList"></ul>
+      </section>
+
+      <!-- Próximas citas -->
+      <section class="paper panel" id="upcomingPanel">
+        <span class="tape"></span>
+        <h2>A dónde ir y cuándo</h2>
+        <ul class="upcoming" id="upcomingList"></ul>
+      </section>
+
+      <!-- Medicamentos -->
+      <section class="paper panel grid-paper">
+        <span class="tape"></span>
+        <h2>Mis medicamentos</h2>
+        <ul class="meds" id="medsList"></ul>
+      </section>
+
+      <!-- Recordatorios -->
+      <section class="paper panel">
+        <span class="tape tape-alt"></span>
+        <h2>Recordatorios</h2>
+        <ul class="reminders" id="remindersList"></ul>
+      </section>
+
+      <!-- Mensajes -->
+      <section class="paper panel lined">
+        <span class="tape tape-tl"></span>
+        <h2>Mensajes del equipo</h2>
+        <div class="thread" id="patientThread"></div>
+        <form class="chat-form" id="patientReplyForm">
+          <input type="text" name="text" placeholder="Responder al equipo médico…" autocomplete="off" />
+          <button type="submit" class="btn btn-icon" aria-label="Enviar respuesta">
+            <svg viewBox="0 0 24 24"><path d="M4 12l16-8-6 16-2-6z"/></svg>
+          </button>
+        </form>
+      </section>
+
+      <!-- Expediente -->
+      <section class="paper panel">
+        <span class="tape"></span>
+        <h2>Mi expediente</h2>
+        <dl class="record" id="patientRecord"></dl>
+        <h3 class="mini-title">Documentos</h3>
+        <ul class="docs" id="patientDocs"></ul>
+      </section>
+
+      <!-- Asistente -->
+      <section class="paper panel chat-panel">
+        <span class="tape tape-tl"></span>
+        <h2>Pregúntale al asistente</h2>
+        <div class="chat-log" id="portalLog">
+          <div class="msg bot">Puedo explicarte cualquier palabra que veas en tu panel. Prueba tocando un procedimiento o un medicamento.</div>
+        </div>
+        <form class="chat-form" id="portalForm">
+          <input type="text" id="portalInput" placeholder="Ej.: ¿qué es la anestesia?" autocomplete="off" />
+          <button type="submit" class="btn btn-icon" aria-label="Enviar">
+            <svg viewBox="0 0 24 24"><path d="M4 12l16-8-6 16-2-6z"/></svg>
+          </button>
+        </form>
+      </section>
+    </div>
+  </main>
+
+  <!-- ============ PANEL CLÍNICO (personal) ============ -->
+  <main id="staff" class="staff" hidden>
+    <div class="portal-head">
+      <div>
+        <p class="scribble">panel clínico</p>
+        <h1 id="staffName">Personal</h1>
+        <p class="muted" id="staffMeta"></p>
+      </div>
+      <button class="btn btn-outline btn-small" data-logout>Cerrar sesión</button>
+    </div>
+
+    <div class="staff-layout">
+      <!-- Lista de pacientes -->
+      <aside class="paper staff-side">
+        <span class="tape tape-alt"></span>
+        <div class="side-head">
+          <h2>Pacientes</h2>
+          <button class="btn btn-small" id="newPatientBtn">+ Nuevo</button>
+        </div>
+        <input type="search" class="input" id="patientSearch" placeholder="Buscar por nombre o ID" aria-label="Buscar paciente" />
+        <div class="filter-row" id="filterRow">
+          <button class="filter active" data-filter="all">Todos</button>
+          <button class="filter" data-filter="internado">Internados</button>
+          <button class="filter" data-filter="ambulatorio">Con cita</button>
+        </div>
+        <ul class="patient-list" id="patientList"></ul>
+      </aside>
+
+      <!-- Detalle del paciente -->
+      <section class="staff-main">
+        <div class="paper staff-empty" id="staffEmpty">
+          <p class="scribble">elige a alguien de la lista</p>
+          <p class="muted">Selecciona un paciente para ver y actualizar sus procedimientos, citas, mensajes y expediente.</p>
+        </div>
+
+        <div id="staffPatient" hidden>
+          <div class="paper patient-card">
+            <span class="tape tape-tl"></span>
+            <div class="pc-top">
+              <div>
+                <h2 id="spName"></h2>
+                <p class="muted" id="spMeta"></p>
+              </div>
+              <div class="id-badge"><span>ID del paciente</span><strong id="spId"></strong></div>
+            </div>
+            <div class="staff-tabs" role="tablist" id="staffTabs">
+              <button role="tab" class="staff-tab active" data-tab="procs">Procedimientos</button>
+              <button role="tab" class="staff-tab" data-tab="citas">Citas y recordatorios</button>
+              <button role="tab" class="staff-tab" data-tab="mensajes">Mensajes <span class="count" id="msgCount" hidden></span></button>
+              <button role="tab" class="staff-tab" data-tab="expediente">Expediente</button>
+            </div>
+          </div>
+
+          <!-- Procedimientos -->
+          <div class="tab-pane" data-pane="procs">
+            <div class="paper auto-plan">
+              <span class="tape"></span>
+              <div class="pane-title">
+                <h3>Plan automático</h3>
+                <p class="muted">Elige un protocolo y una fecha de inicio: se crean todos los pasos con su responsable y área.</p>
+              </div>
+              <div class="form-grid">
+                <div class="field">
+                  <label for="tplSelect">Protocolo</label>
+                  <select id="tplSelect" class="input"></select>
+                </div>
+                <div class="field">
+                  <label for="tplDate">Fecha de inicio</label>
+                  <input type="date" id="tplDate" class="input" />
+                </div>
+              </div>
+              <ol class="tpl-preview" id="tplPreview"></ol>
+              <button class="btn" id="tplApply">Agregar plan al paciente</button>
+            </div>
+
+            <div class="paper">
+              <div class="pane-title"><h3>Procedimientos del paciente</h3></div>
+              <ul class="admin-list" id="spProcs"></ul>
+            </div>
+
+            <form class="paper admin-form" id="procForm">
+              <h3 data-form-title>Agregar procedimiento</h3>
+              <input type="hidden" name="id" />
+              <div class="form-grid">
+                <div class="field span-2"><label>Procedimiento</label><input class="input" name="title" required placeholder="Ej.: Resonancia magnética" /></div>
+                <div class="field"><label>Fecha</label><input class="input" type="date" name="date" required /></div>
+                <div class="field"><label>Hora</label><input class="input" type="time" name="time" required /></div>
+                <div class="field"><label>Médico responsable</label><select class="input doctor-select" name="doctor" required></select></div>
+                <div class="field"><label>Área</label><select class="input area-select" name="area" required></select></div>
+                <div class="field span-2"><label>Indicaciones para la familia</label><textarea class="input" name="desc" rows="2" placeholder="Qué se hará y cómo prepararse, en palabras sencillas"></textarea></div>
+              </div>
+              <div class="form-actions">
+                <button class="btn" type="submit" data-submit>Agregar procedimiento</button>
+                <button class="btn btn-outline" type="button" data-cancel hidden>Cancelar edición</button>
+              </div>
+            </form>
+          </div>
+
+          <!-- Citas -->
+          <div class="tab-pane" data-pane="citas" hidden>
+            <div class="paper">
+              <div class="pane-title"><h3>Citas y visitas</h3><p class="muted">Las visitas a la habitación de hoy aparecen en “Hoy en tu habitación”; las demás citas, en “A dónde ir y cuándo”.</p></div>
+              <ul class="admin-list" id="spCitas"></ul>
+            </div>
+
+            <form class="paper admin-form" id="citaForm">
+              <h3 data-form-title>Agendar cita</h3>
+              <input type="hidden" name="id" />
+              <div class="form-grid">
+                <div class="field"><label>Tipo</label><select class="input" name="type" id="citaType"></select></div>
+                <div class="field"><label>Motivo</label><input class="input" name="title" required placeholder="Ej.: Control post-operatorio" /></div>
+                <div class="field"><label>Fecha</label><input class="input" type="date" name="date" required /></div>
+                <div class="field"><label>Hora</label><input class="input" type="time" name="time" required /></div>
+                <div class="field"><label>Médico</label><select class="input doctor-select" name="doctor" required></select></div>
+                <div class="field"><label>Área / lugar</label><select class="input area-select" name="area" required></select></div>
+                <div class="field span-2"><label>Indicaciones</label><textarea class="input" name="notes" rows="2" placeholder="Ej.: Llegar 15 minutos antes y traer el carnet"></textarea></div>
+              </div>
+              <p class="where-hint" id="citaWhere"></p>
+              <div class="form-actions">
+                <button class="btn" type="submit" data-submit>Agendar cita</button>
+                <button class="btn btn-outline" type="button" data-cancel hidden>Cancelar edición</button>
+              </div>
+            </form>
+
+            <div class="paper">
+              <div class="pane-title"><h3>Recordatorios</h3></div>
+              <ul class="admin-list" id="spReminders"></ul>
+              <form class="inline-form" id="reminderForm">
+                <input class="input" name="text" required placeholder="Recordatorio (ej.: Ayuno desde las 22:00)" />
+                <input class="input" name="when" placeholder="Cuándo (ej.: hoy en la noche)" />
+                <button class="btn btn-small" type="submit">Agregar</button>
+              </form>
+            </div>
+          </div>
+
+          <!-- Mensajes -->
+          <div class="tab-pane" data-pane="mensajes" hidden>
+            <div class="paper">
+              <div class="pane-title"><h3>Conversación con la familia</h3></div>
+              <div class="thread thread-tall" id="staffThread"></div>
+              <div class="chips quick-msgs" id="quickMsgs">
+                <button type="button" class="chip" data-text="Recuerda mantener el ayuno hasta tu procedimiento.">Recordar ayuno</button>
+                <button type="button" class="chip" data-text="Tus resultados ya están disponibles en la sección Mi expediente.">Resultados listos</button>
+                <button type="button" class="chip" data-text="Tu cita se reprogramó. Revisa la nueva fecha en “A dónde ir y cuándo”.">Cita reprogramada</button>
+              </div>
+              <form class="message-form" id="staffMsgForm">
+                <textarea class="input" name="text" rows="3" required placeholder="Escribe un mensaje para el paciente y su familia…"></textarea>
+                <div class="form-actions">
+                  <label class="check"><input type="checkbox" name="important" /> Marcar como importante</label>
+                  <button class="btn" type="submit">Enviar mensaje</button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <!-- Expediente -->
+          <div class="tab-pane" data-pane="expediente" hidden>
+            <form class="paper admin-form" id="recordForm">
+              <h3>Datos clínicos visibles para la familia</h3>
+              <div class="form-grid">
+                <div class="field"><label>Tipo de sangre</label><input class="input" name="blood" placeholder="Ej.: O+" /></div>
+                <div class="field"><label>Alergias</label><input class="input" name="allergies" placeholder="Ej.: Penicilina" /></div>
+                <div class="field"><label>Peso</label><input class="input" name="weight" placeholder="Ej.: 29 kg" /></div>
+                <div class="field"><label>Talla</label><input class="input" name="height" placeholder="Ej.: 1.32 m" /></div>
+                <div class="field span-2"><label>Diagnóstico</label><input class="input" name="diagnosis" /></div>
+                <div class="field span-2"><label>Notas de evolución</label><textarea class="input" name="notes" rows="3"></textarea></div>
+              </div>
+              <div class="form-actions">
+                <button class="btn" type="submit">Guardar datos</button>
+                <span class="muted tiny" id="recordUpdated"></span>
+              </div>
+            </form>
+
+            <div class="paper">
+              <div class="pane-title"><h3>Expediente digitalizado</h3><p class="muted">PDF o imágenes de hasta 2 MB por archivo.</p></div>
+              <div class="form-grid">
+                <div class="field">
+                  <label for="docCategory">Tipo de documento</label>
+                  <select class="input" id="docCategory">
+                    <option>Resultados de laboratorio</option>
+                    <option>Imagenología</option>
+                    <option>Nota médica</option>
+                    <option>Consentimiento informado</option>
+                    <option>Expediente completo</option>
+                    <option>Otro</option>
+                  </select>
+                </div>
+              </div>
+              <label class="dropzone" id="dropzone">
+                <input type="file" id="docInput" accept=".pdf,image/*" multiple />
+                <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 21V7M10 13l6-6 6 6M6 21v4h20v-4"/></svg>
+                <span><strong>Arrastra archivos aquí</strong> o haz clic para elegirlos</span>
+              </label>
+              <ul class="docs" id="staffDocs"></ul>
+            </div>
+
+            <div class="paper">
+              <div class="pane-title"><h3>Medicamentos</h3></div>
+              <ul class="admin-list" id="spMeds"></ul>
+              <form class="admin-form flat" id="medForm">
+                <div class="form-grid cols-5">
+                  <div class="field"><label>Medicamento</label><input class="input" name="name" required /></div>
+                  <div class="field"><label>Dosis</label><input class="input" name="dose" required placeholder="250 mg" /></div>
+                  <div class="field"><label>Para qué sirve</label><input class="input" name="purpose" placeholder="Calma el dolor" /></div>
+                  <div class="field"><label>Frecuencia</label><input class="input" name="every" placeholder="Cada 8 h" /></div>
+                  <div class="field"><label>Próxima toma</label><input class="input" name="next" placeholder="14:00" /></div>
+                </div>
+                <button class="btn btn-small" type="submit">Agregar medicamento</button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- ============ NUEVO PACIENTE ============ -->
+  <dialog class="paper dialog" id="newPatientDialog">
+    <form id="newPatientForm" class="admin-form flat">
+      <h3>Registrar paciente</h3>
+      <div class="form-grid">
+        <div class="field span-2"><label>Nombre completo</label><input class="input" name="name" required /></div>
+        <div class="field"><label>Edad</label><input class="input" name="age" type="number" min="0" max="18" required /></div>
+        <div class="field"><label>Tipo</label>
+          <select class="input" name="type">
+            <option value="internado">Internado</option>
+            <option value="ambulatorio">Con cita (no internado)</option>
+          </select>
+        </div>
+        <div class="field"><label>Habitación o servicio</label><input class="input" name="room" placeholder="Habitación 315 · Pediatría" /></div>
+        <div class="field"><label>Motivo</label><input class="input" name="reason" required placeholder="Ej.: Revisión anual" /></div>
+      </div>
+      <p class="muted tiny">Se generará un ID único para entregar a la familia.</p>
+      <div class="form-actions">
+        <button class="btn" type="submit">Crear y generar ID</button>
+        <button class="btn btn-outline" type="button" id="cancelNewPatient">Cancelar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <footer class="footer">
+    <p class="logo small-logo">Well Well</p>
+    <p class="muted">La información de Well Well no sustituye la indicación de tu médico. Ante cualquier duda, consulta al equipo de salud.</p>
+    <p class="muted tiny">© 2026 Well Well</p>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
