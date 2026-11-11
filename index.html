@@ -9,7 +9,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,400;1,9..144,600&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
 </head>
 <body>
 
@@ -32,23 +31,7 @@
   </header>
 
   <main id="landing">
-  <h2>Registrarse</h2>
-  <form id="signupForm">
-    <input type="email" id="emailSignup" placeholder="Correo electrónico" required>
-    <input type="password" id="passwordSignup" placeholder="Contraseña" required>
-    <input type="text" id="nameSignup" placeholder="Nombre completo" required>
-    <button type="submit">Crear cuenta</button>
-  </form>
 
-  <h2>Iniciar Sesión</h2>  
-  <form id="loginForm">
-    <input type="email" id="emailLogin" placeholder="Correo electrónico" required>
-    <input type="password" id="passwordLogin" placeholder="Contraseña" required>
-    <button type="submit">Ingresar</button>
-  </form>
-
-  <div id="welcomeMessage"></div>
-  <button id="logoutButton" style="display:none">Cerrar sesión</button>
     <!-- ============ HERO ============ -->
     <section class="hero" id="inicio">
       <div class="hero-text">
@@ -69,9 +52,10 @@
           <span class="tape tape-tl"></span>
           <span class="tape tape-br"></span>
 
-          <div class="role-tabs" role="tablist">
+          <div class="role-tabs" role="tablist" style="grid-template-columns: repeat(3, 1fr); border-radius: 14px;">
             <button type="button" role="tab" class="role-tab active" data-role="patient" aria-selected="true">Paciente / familia</button>
             <button type="button" role="tab" class="role-tab" data-role="staff" aria-selected="false">Personal del hospital</button>
+            <button type="button" role="tab" class="role-tab" data-role="account" aria-selected="false">Mi cuenta</button>
           </div>
 
           <!-- Paciente -->
@@ -102,6 +86,41 @@
               <button type="submit" class="btn btn-full btn-brown">Entrar al panel clínico</button>
             </form>
             <p class="demo-hint">Cuenta de prueba: <button type="button" class="link-btn" id="staffDemo">MED-0042 · 2026</button></p>
+          </div>
+
+          <!-- Mi cuenta (Supabase Auth) -->
+          <div class="role-pane" id="accountPane" hidden>
+            <div id="authForms">
+              <p class="scribble small">mi cuenta</p>
+              <h2>Inicia sesión</h2>
+              <form id="authLoginForm" novalidate>
+                <label for="loginEmail">Correo</label>
+                <input id="loginEmail" name="email" type="email" autocomplete="email" style="text-transform:none; letter-spacing:normal; font-size:1.1rem;" />
+                <label for="loginPassword">Contraseña</label>
+                <input id="loginPassword" name="password" type="password" autocomplete="current-password" style="text-transform:none; letter-spacing:normal; font-size:1.1rem;" />
+                <p class="form-error" id="authLoginError" role="alert"></p>
+                <button type="submit" class="btn btn-full">Iniciar sesión</button>
+              </form>
+
+              <h2 style="margin-top: 1.8rem;">Crea tu cuenta</h2>
+              <form id="authSignupForm" novalidate>
+                <label for="signupName">Nombre</label>
+                <input id="signupName" name="nombre" type="text" autocomplete="name" style="text-transform:none; letter-spacing:normal; font-size:1.1rem;" />
+                <label for="signupEmail">Correo</label>
+                <input id="signupEmail" name="email" type="email" autocomplete="email" style="text-transform:none; letter-spacing:normal; font-size:1.1rem;" />
+                <label for="signupPassword">Contraseña (mínimo 6 caracteres)</label>
+                <input id="signupPassword" name="password" type="password" autocomplete="new-password" style="text-transform:none; letter-spacing:normal; font-size:1.1rem;" />
+                <p class="form-error" id="authSignupError" role="alert"></p>
+                <p class="demo-hint" id="authSignupInfo" hidden></p>
+                <button type="submit" class="btn btn-full btn-brown">Registrarme</button>
+              </form>
+            </div>
+
+            <div id="authSession" hidden>
+              <p class="scribble small">sesión iniciada</p>
+              <h2 id="authHello">Hola</h2>
+              <button type="button" class="btn btn-outline btn-full" id="authLogout" style="margin-top: 1.2rem;">Cerrar sesión</button>
+            </div>
           </div>
         </div>
         <div class="polaroid hero-polaroid" aria-hidden="true">
@@ -584,6 +603,7 @@
     <p class="muted tiny">© 2026 Well Well</p>
   </footer>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
