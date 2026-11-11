@@ -32,7 +32,23 @@
   </header>
 
   <main id="landing">
+  <h2>Registrarse</h2>
+  <form id="signupForm">
+    <input type="email" id="emailSignup" placeholder="Correo electrónico" required>
+    <input type="password" id="passwordSignup" placeholder="Contraseña" required>
+    <input type="text" id="nameSignup" placeholder="Nombre completo" required>
+    <button type="submit">Crear cuenta</button>
+  </form>
 
+  <h2>Iniciar Sesión</h2>  
+  <form id="loginForm">
+    <input type="email" id="emailLogin" placeholder="Correo electrónico" required>
+    <input type="password" id="passwordLogin" placeholder="Contraseña" required>
+    <button type="submit">Ingresar</button>
+  </form>
+
+  <div id="welcomeMessage"></div>
+  <button id="logoutButton" style="display:none">Cerrar sesión</button>
     <!-- ============ HERO ============ -->
     <section class="hero" id="inicio">
       <div class="hero-text">
