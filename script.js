@@ -1149,3 +1149,7 @@ try {
   if (s && s.role === "patient" && db.patients[s.id]) openPatient(s.id);
   if (s && s.role === "staff" && STAFF[s.id]) openStaff(s.id);
 } catch (_) {}
+
+  const supabaseUrl = 'https://xkfoiggivoxiwwkzcpbe.supabase.co'
+  const supabaseKey = 'sb_publishable_4v_AY40WLUYn78Bn1dETlQ_PJnc5bE'
+  const supabase = supabase.createClient(supabaseUrl, supabaseKey)
