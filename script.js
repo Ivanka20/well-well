@@ -7,6 +7,33 @@ En producción, el login, los datos y los archivos vivirían
 en el servidor del hospital, y el asistente se conectaría a
 un modelo de IA desde ese servidor.
 ========================================================= *//* ---------- Inicialización de Supabase ---------- */
+  document.getElementById('signupForm').addEventListener('submit', signUpSubmitted)
+
+  async function signUpSubmitted(event) {
+    event.preventDefault()
+    
+    const email = document.getElementById('emailSignup').value
+    const password = document.getElementById('passwordSignup').value
+    const name = document.getElementById('nameSignup').value
+
+    if (password.length < 6) {
+      alert('La contraseña debe tener al menos 6 caracteres')
+      return
+    }
+
+    const { user, error } = await supabase.auth.signUp({
+      email: email,
+      password: password
+    })
+
+    if (error) {
+      alert(error.message)
+    } else {
+      await supabase
+        .from('perfiles')
+        .insert({ id: user.id, nombre: name })
+    }
+  }
 const supabaseUrl = 'https://xkfoiggivoxiwwkzcpbe.supabase.co'
 const supabaseKey = 'sb_publishable_4v_AY40WLUYn78Bn1dETlQ_PJnc5bE'
 const supabase = supabase.createClient(supabaseUrl, supabaseKey)/* ---------- Utilidades ---------- */
