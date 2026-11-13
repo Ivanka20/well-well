@@ -1,0 +1,8 @@
+Pon aquí el archivo de la fuente Transcity con uno de estos nombres:
+
+  Transcity-Regular.woff2   (recomendado, pesa menos)
+  Transcity-Regular.otf
+  Transcity-Regular.ttf
+
+Mientras no esté, el sitio usa Fraunces (Google Fonts), que tiene un estilo parecido.
+Revisa que tu licencia de Transcity permita usarla en un sitio web.
