@@ -1,1296 +1,623 @@
 /* =========================================================
-   Well Well · lógica de la landing, el panel del paciente
-   y el panel clínico del personal.
-
-   Nota: es una demo sin servidor. Los datos se guardan en el
-   navegador (localStorage), así que lo que el personal cambia
-   se ve en la cuenta del paciente en este mismo navegador.
-   En producción, el login, los datos y los archivos vivirían
-   en el servidor del hospital, y el asistente se conectaría a
-   un modelo de IA desde ese servidor.
+   well well · estilos (estilo revista)
+   Paleta: SOLO estos 4 colores.
+   - Amaranth: texto, contornos y fondos oscuros
+   - Chalk: papel / fondo principal
+   - Brook Green: superficies
+   - Pomelo Olive: detalles decorativos (no lleva texto encima)
    ========================================================= */
+:root {
+  --amaranth: #933B5B;
+  --brook: #AABAAE;
+  --chalk: #E3D6BF;
+  --pomelo: #9F9679;
 
-/* ---------- Utilidades ---------- */
-const $ = (s, r = document) => r.querySelector(s);
-const $$ = (s, r = document) => [...r.querySelectorAll(s)];
-const esc = (s = "") =>
-  String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const uid = () => Math.random().toString(36).slice(2, 10);
-const pad = (n) => String(n).padStart(2, "0");
-const DAY = 24 * 60 * 60 * 1000;
-
-const startOfToday = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; };
-const iso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-const todayISO = () => iso(startOfToday());
-const isoIn = (n) => { const d = startOfToday(); d.setDate(d.getDate() + n); return iso(d); };
-const parseISO = (s) => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); };
-const fmtDate = (s) => parseISO(s).toLocaleDateString("es", { day: "numeric", month: "short" }).replace(".", "");
-const fmtDay = (s) => {
-  const diff = Math.round((parseISO(s) - startOfToday()) / DAY);
-  return diff === 0 ? "hoy" : diff === 1 ? "mañana" : diff === -1 ? "ayer" : fmtDate(s);
-};
-const fmtStamp = (isoStr) =>
-  new Date(isoStr).toLocaleString("es", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).replace(".", "");
-const fmtSize = (b) => (b > 1048576 ? (b / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(b / 1024)) + " KB");
-const nowAt = (h, m) => { const d = new Date(); d.setHours(h, m, 0, 0); return d.toISOString(); };
-const sortByDate = (a, b) => (a.date + (a.time || "")).localeCompare(b.date + (b.time || ""));
-
-function toast(msg) {
-  const t = $("#toast");
-  t.textContent = msg;
-  t.classList.add("show");
-  clearTimeout(toast._t);
-  toast._t = setTimeout(() => t.classList.remove("show"), 3200);
+  /* Transcity se carga desde /fonts. Mientras no esté el archivo,
+     se usa Fraunces (Google Fonts), que tiene un estilo parecido. */
+  --serif: "Transcity", "Fraunces", Georgia, serif;
+  --body: var(--serif);
+  --radius: 6px;
+  --shadow: 4px 5px 0 var(--amaranth);
+  --shadow-sm: 2px 3px 0 var(--amaranth);
 }
 
-/* ---------- Catálogos del hospital ---------- */
-const DOCTORS = [
-  { name: "Dra. Carmen Ortiz", spec: "Pediatría" },
-  { name: "Dr. Andrés Molina", spec: "Cirugía pediátrica" },
-  { name: "Dr. Luis Paredes", spec: "Traumatología" },
-  { name: "Dra. Elena Salas", spec: "Anestesiología" },
-  { name: "Dr. Ricardo Núñez", spec: "Radiología" },
-  { name: "Lic. Paula Ríos", spec: "Nutrición" },
-  { name: "Enf. Laura Gómez", spec: "Enfermería" },
-  { name: "Lic. Diego Sosa", spec: "Fisioterapia" },
-  { name: "Psic. Tomás Vera", spec: "Psicología" },
-];
-
-const AREAS = [
-  { name: "Habitación del paciente", where: "En tu habitación" },
-  { name: "Urgencias pediátricas", where: "Edificio A · Planta baja · Entrada principal" },
-  { name: "Laboratorio clínico", where: "Edificio A · Planta baja · Ventanilla 3" },
-  { name: "Radiología e imagen", where: "Edificio A · Piso 1 · Sala 104" },
-  { name: "Quirófanos pediátricos", where: "Edificio B · Piso 2 · Elevador azul" },
-  { name: "Traumatología", where: "Edificio B · Piso 1 · Consultorio 130" },
-  { name: "Consulta externa pediátrica", where: "Edificio C · Piso 1 · Consultorios 110–120" },
-  { name: "Vacunación", where: "Edificio C · Planta baja · Módulo 2" },
-  { name: "Fisioterapia", where: "Edificio C · Planta baja · Gimnasio" },
-  { name: "Nutrición", where: "Edificio C · Piso 2 · Consultorio 205" },
-];
-const whereOf = (area) => (AREAS.find((a) => a.name === area) || {}).where || "";
-
-const VISIT = "Visita a la habitación";
-const CITA_TYPES = [VISIT, "Consulta", "Control", "Estudio", "Revisión anual", "Vacunación", "Terapia"];
-
-/* Cuentas de personal (demo). En producción: inicio de sesión del hospital. */
-const STAFF = {
-  "MED-0042": { code: "2026", name: "Dra. Carmen Ortiz", role: "Pediatría" },
-  "ENF-0108": { code: "1234", name: "Enf. Laura Gómez", role: "Enfermería" },
-};
-
-/* Protocolos para el plan automático. `d` = días desde la fecha de inicio. */
-const TEMPLATES = [
-  {
-    name: "Apendicectomía laparoscópica",
-    steps: [
-      { title: "Valoración prequirúrgica", d: 0, time: "09:00", doctor: "Dr. Andrés Molina", area: "Habitación del paciente", desc: "El cirujano revisa al paciente y explica la cirugía a la familia." },
-      { title: "Análisis de sangre", d: 0, time: "10:00", doctor: "Enf. Laura Gómez", area: "Laboratorio clínico", desc: "Hemograma y pruebas de coagulación antes de la cirugía." },
-      { title: "Valoración de anestesia", d: 0, time: "16:00", doctor: "Dra. Elena Salas", area: "Habitación del paciente", desc: "La anestesióloga conoce al paciente y resuelve dudas." },
-      { title: "Apendicectomía", d: 1, time: "07:30", doctor: "Dr. Andrés Molina", area: "Quirófanos pediátricos", desc: "Cirugía por laparoscopia. Ayuno desde la noche anterior." },
-      { title: "Curación de herida", d: 3, time: "11:00", doctor: "Enf. Laura Gómez", area: "Habitación del paciente", desc: "Revisión y limpieza de las heridas pequeñas." },
-      { title: "Alta médica", d: 4, time: "12:00", doctor: "Dr. Andrés Molina", area: "Habitación del paciente", desc: "Indicaciones para casa y fecha de control." },
-    ],
-  },
-  {
-    name: "Fractura con yeso",
-    steps: [
-      { title: "Radiografía", d: 0, time: "09:00", doctor: "Dr. Ricardo Núñez", area: "Radiología e imagen", desc: "Imagen para ver la fractura." },
-      { title: "Reducción y yeso", d: 0, time: "12:00", doctor: "Dr. Luis Paredes", area: "Traumatología", desc: "Se acomoda el hueso con anestesia y se coloca el yeso." },
-      { title: "Radiografía de control", d: 1, time: "10:00", doctor: "Dr. Ricardo Núñez", area: "Radiología e imagen", desc: "Comprobar que el hueso sigue alineado." },
-      { title: "Fisioterapia", d: 1, time: "17:00", doctor: "Lic. Diego Sosa", area: "Fisioterapia", desc: "Aprender a usar muletas de forma segura." },
-      { title: "Control con traumatología", d: 21, time: "09:30", doctor: "Dr. Luis Paredes", area: "Traumatología", desc: "Revisión del yeso y nueva radiografía." },
-    ],
-  },
-  {
-    name: "Resonancia con sedación",
-    steps: [
-      { title: "Ayuno", d: 0, time: "00:00", doctor: "Enf. Laura Gómez", area: "Habitación del paciente", desc: "Sin comer desde la medianoche ni beber 2 horas antes." },
-      { title: "Valoración de anestesia", d: 0, time: "08:00", doctor: "Dra. Elena Salas", area: "Radiología e imagen", desc: "Revisión antes de la sedación." },
-      { title: "Resonancia magnética", d: 0, time: "09:00", doctor: "Dr. Ricardo Núñez", area: "Radiología e imagen", desc: "Estudio de imagen con sedación suave. No duele." },
-      { title: "Recuperación", d: 0, time: "10:30", doctor: "Enf. Laura Gómez", area: "Radiología e imagen", desc: "Observación hasta que despierte por completo." },
-    ],
-  },
-  {
-    name: "Revisión anual (consulta externa)",
-    steps: [
-      { title: "Análisis de sangre", d: 0, time: "08:00", doctor: "Enf. Laura Gómez", area: "Laboratorio clínico", desc: "Ayuno de 8 horas. Llegar 10 minutos antes." },
-      { title: "Consulta de revisión anual", d: 0, time: "09:30", doctor: "Dra. Carmen Ortiz", area: "Consulta externa pediátrica", desc: "Peso, talla, desarrollo y revisión general." },
-      { title: "Vacunación", d: 0, time: "10:30", doctor: "Enf. Laura Gómez", area: "Vacunación", desc: "Aplicación de las vacunas que correspondan por edad." },
-      { title: "Entrega de resultados", d: 7, time: "11:00", doctor: "Dra. Carmen Ortiz", area: "Consulta externa pediátrica", desc: "Revisión de los análisis con la familia." },
-    ],
-  },
-];
-
-/* ---------- Base de datos (demo en localStorage) ---------- */
-const DB_KEY = "ww-db-v2";
-
-function seedDB() {
-  const visit = (time, doctor, title) => ({ id: uid(), type: VISIT, title, date: todayISO(), time, doctor, area: "Habitación del paciente", notes: "" });
-  const proc = (title, d, time, doctor, area, desc) => ({ id: uid(), title, date: isoIn(d), time, doctor, area, desc });
-  const rem = (text, when) => ({ id: uid(), text, when });
-
-  return {
-    patients: {
-      "WW-2048-17": {
-        id: "WW-2048-17", name: "Sofía Ramírez", age: 9, type: "internado",
-        room: "Habitación 312 · Pediatría", reason: "Recuperación de apendicitis",
-        procedures: [
-          proc("Ingreso y valoración", -5, "09:00", "Dra. Carmen Ortiz", "Urgencias pediátricas", "Revisión general al llegar: signos vitales y entrevista con la familia."),
-          proc("Análisis de sangre", -5, "10:00", "Enf. Laura Gómez", "Laboratorio clínico", "Hemograma completo para revisar si había infección."),
-          proc("Ecografía abdominal", -4, "08:30", "Dr. Ricardo Núñez", "Radiología e imagen", "Imagen del abdomen con ultrasonido, sin dolor ni radiación."),
-          proc("Apendicectomía", -3, "07:00", "Dr. Andrés Molina", "Quirófanos pediátricos", "Cirugía por laparoscopia para retirar el apéndice inflamado. Todo salió bien."),
-          proc("Curación de herida", 0, "11:00", "Enf. Laura Gómez", "Habitación del paciente", "La enfermera revisará y limpiará las pequeñas heridas de la cirugía."),
-          proc("Retiro de vía intravenosa", 1, "09:00", "Enf. Laura Gómez", "Habitación del paciente", "Si comes y tomas líquidos bien, se retira el suero del brazo."),
-          proc("Alta médica", 3, "12:00", "Dr. Andrés Molina", "Habitación del paciente", "¡A casa! Recibirás indicaciones de cuidados y la fecha de control."),
-        ],
-        appointments: [
-          visit("08:00", "Enf. Laura Gómez", "Signos vitales y medicamentos"),
-          visit("10:30", "Dr. Andrés Molina", "Revisión post-operatoria"),
-          visit("13:00", "Lic. Paula Ríos", "Plan de comidas"),
-          visit("16:00", "Dra. Carmen Ortiz", "Pediatra de guardia"),
-          visit("18:30", "Psic. Tomás Vera", "Acompañamiento emocional"),
-          { id: uid(), type: "Control", title: "Control post-operatorio", date: isoIn(10), time: "10:00", doctor: "Dr. Andrés Molina", area: "Consulta externa pediátrica", notes: "Trae tu hoja de alta. Llega 15 minutos antes." },
-        ],
-        meds: [
-          { id: uid(), name: "Amoxicilina", dose: "250 mg", purpose: "Antibiótico para evitar infecciones", every: "Cada 8 h", next: "14:00" },
-          { id: uid(), name: "Paracetamol", dose: "320 mg", purpose: "Calma el dolor y baja la fiebre", every: "Cada 6 h", next: "12:00" },
-          { id: uid(), name: "Ondansetrón", dose: "4 mg", purpose: "Evita las náuseas", every: "Si hay náuseas", next: "Solo si lo necesitas" },
-        ],
-        reminders: [
-          rem("Ayuno de 2 h antes de la curación", "hoy, desde las 9:00"),
-          rem("Caminar por el pasillo con un adulto", "3 veces al día"),
-          rem("Anotar si sientes dolor (del 0 al 10)", "en cada visita de enfermería"),
-          rem("Preparar preguntas para el alta", fmtDate(isoIn(3))),
-        ],
-        messages: [
-          { id: uid(), from: "staff", author: "Dr. Andrés Molina", text: "¡Hola, Sofía! La cirugía salió muy bien. Hoy paso a verte a las 10:30.", at: nowAt(8, 15), important: false },
-        ],
-        record: {
-          blood: "O+", allergies: "Ninguna conocida", weight: "29 kg", height: "1.32 m",
-          diagnosis: "Apendicitis aguda · post-operatorio de apendicectomía laparoscópica",
-          notes: "Evolución favorable. Tolera dieta líquida y camina con ayuda.",
-          updated: nowAt(8, 0), by: "Dr. Andrés Molina",
-        },
-        docs: [],
-      },
-
-      "WW-1120-05": {
-        id: "WW-1120-05", name: "Mateo Fernández", age: 13, type: "internado",
-        room: "Habitación 207 · Traumatología", reason: "Fractura de tibia",
-        procedures: [
-          proc("Urgencias", -2, "18:00", "Dra. Carmen Ortiz", "Urgencias pediátricas", "Valoración inicial y control del dolor."),
-          proc("Radiografía", -2, "19:00", "Dr. Ricardo Núñez", "Radiología e imagen", "Imagen de la pierna para ver la fractura."),
-          proc("Reducción y yeso", -1, "10:00", "Dr. Luis Paredes", "Traumatología", "Se acomodó el hueso bajo anestesia y se colocó un yeso."),
-          proc("Radiografía de control", 0, "11:00", "Dr. Ricardo Núñez", "Radiología e imagen", "Comprobar que el hueso sigue bien alineado."),
-          proc("Fisioterapia", 1, "17:00", "Lic. Diego Sosa", "Fisioterapia", "Aprender a usar muletas de forma segura."),
-          proc("Alta médica", 2, "12:00", "Dr. Luis Paredes", "Habitación del paciente", "Regreso a casa con indicaciones."),
-        ],
-        appointments: [
-          visit("09:00", "Dr. Luis Paredes", "Revisión del yeso"),
-          visit("17:00", "Lic. Diego Sosa", "Ejercicios con muletas"),
-        ],
-        meds: [
-          { id: uid(), name: "Ibuprofeno", dose: "400 mg", purpose: "Reduce el dolor y la inflamación", every: "Cada 8 h", next: "15:00" },
-          { id: uid(), name: "Paracetamol", dose: "500 mg", purpose: "Refuerzo para el dolor", every: "Cada 6 h", next: "12:00" },
-        ],
-        reminders: [
-          rem("Mantener la pierna elevada", "todo el día"),
-          rem("Avisar si los dedos se sienten fríos o dormidos", "en cualquier momento"),
-        ],
-        messages: [],
-        record: { blood: "A+", allergies: "Penicilina", weight: "46 kg", height: "1.58 m", diagnosis: "Fractura cerrada de tibia derecha", notes: "Buena alineación tras la reducción.", updated: nowAt(9, 0), by: "Dr. Luis Paredes" },
-        docs: [],
-      },
-
-      "WW-3301-09": {
-        id: "WW-3301-09", name: "Valentina Cruz", age: 6, type: "ambulatorio",
-        room: "Consulta externa", reason: "Revisión anual",
-        procedures: [],
-        appointments: [
-          { id: uid(), type: "Estudio", title: "Análisis de sangre", date: isoIn(2), time: "08:00", doctor: "Enf. Laura Gómez", area: "Laboratorio clínico", notes: "Ayuno de 8 horas. Trae tu ID Well Well." },
-          { id: uid(), type: "Revisión anual", title: "Revisión anual de pediatría", date: isoIn(2), time: "09:30", doctor: "Dra. Carmen Ortiz", area: "Consulta externa pediátrica", notes: "Llega 15 minutos antes para tomar peso y talla." },
-          { id: uid(), type: "Vacunación", title: "Vacunas de los 6 años", date: isoIn(2), time: "10:30", doctor: "Enf. Laura Gómez", area: "Vacunación", notes: "Trae la cartilla de vacunación." },
-        ],
-        meds: [],
-        reminders: [rem("Ayuno desde las 0:00 para el análisis", fmtDate(isoIn(2)))],
-        messages: [
-          { id: uid(), from: "staff", author: "Dra. Carmen Ortiz", text: "Hola, familia Cruz. Les esperamos para la revisión anual de Valentina. Revisen en “A dónde ir y cuándo” cada lugar.", at: nowAt(9, 30), important: true },
-        ],
-        record: { blood: "B+", allergies: "Ninguna conocida", weight: "21 kg", height: "1.16 m", diagnosis: "Niña sana · control anual", notes: "", updated: nowAt(9, 0), by: "Dra. Carmen Ortiz" },
-        docs: [],
-      },
-    },
-  };
+@font-face {
+  font-family: "Transcity";
+  src: url("fonts/Transcity-Regular.woff2") format("woff2"),
+       url("fonts/Transcity-Regular.otf") format("opentype"),
+       url("fonts/Transcity-Regular.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
 }
 
-function loadDB() {
-  try {
-    const raw = localStorage.getItem(DB_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch (_) {}
-  return seedDB();
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  font-family: var(--body);
+  font-size: 18px;
+  line-height: 1.5;
+  font-synthesis: none; /* Transcity solo tiene "Regular": sin negritas ni cursivas falsas */
+  color: var(--amaranth);
+  background-color: var(--chalk);
+  background-image: radial-gradient(var(--pomelo) 1px, transparent 1.3px);
+  background-size: 24px 24px;
+  min-height: 100vh;
+  overflow-x: hidden;
 }
-let db = loadDB();
+h1, h2, h3, p { margin: 0; }
+button { font: inherit; color: inherit; cursor: pointer; }
+a { color: inherit; }
+[hidden] { display: none !important; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+:focus-visible { outline: 3px dashed var(--amaranth); outline-offset: 3px; }
 
-function saveDB() {
-  try {
-    localStorage.setItem(DB_KEY, JSON.stringify(db));
-    return true;
-  } catch (_) {
-    toast("No hay espacio para guardar en este navegador. Prueba con un archivo más pequeño.");
-    return false;
-  }
+/* ---------- colores utilitarios ---------- */
+.bg-chalk { background: var(--chalk); }
+.bg-brook { background: var(--brook); }
+.bg-pomelo { background: var(--pomelo); }
+.bg-amaranth { background: var(--amaranth); color: var(--chalk); }
+.bg-amaranth .ico, .bg-amaranth .stk { stroke: var(--chalk); }
+.bg-amaranth .btn-ink { background: var(--chalk); color: var(--amaranth); border-color: var(--chalk); }
+.bg-amaranth .btn-ghost { color: var(--chalk); border-color: var(--chalk); }
+.bg-amaranth .progress { border-color: var(--chalk); background: var(--amaranth); }
+.bg-amaranth .progress span { background: var(--chalk); }
+
+/* ---------- toques de revista ---------- */
+.kicker { font-family: var(--serif); text-transform: uppercase; letter-spacing: .22em; font-size: .78rem; font-weight: 700; }
+.mag-h {
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 700;
+  font-size: clamp(2rem, 5.5vw, 3.4rem);
+  line-height: 1;
+  letter-spacing: -.01em;
 }
-saveDB();
-
-/* Ordena procedimientos y marca su estado: realizado / próximo / programado */
-function withStatus(procs) {
-  const list = [...procs].sort(sortByDate);
-  const t = todayISO();
-  const next = list.findIndex((p) => p.date >= t);
-  return list.map((p, i) => ({ ...p, status: next === -1 || i < next ? "done" : i === next ? "next" : "future" }));
-}
-const STATUS_TEXT = { done: "Realizado", next: "Próximo", future: "Programado" };
-
-/* ---------- Glosario del asistente ---------- */
-const GLOSSARY = [
-  { keys: ["biopsia"], term: "Biopsia", adult: "Es tomar una muestra muy pequeña de un tejido para analizarla en el laboratorio con microscopio. Ayuda a confirmar un diagnóstico.", kid: "Los doctores toman un pedacito diminuto para mirarlo con una lupa súper potente." },
-  { keys: ["ayuno", "ayunas"], term: "Ayuno", adult: "Significa no comer ni beber durante un tiempo indicado, normalmente antes de una cirugía, anestesia o algunos análisis, para que el procedimiento sea más seguro.", kid: "Tu pancita descansa un ratito sin comida para que todo salga bien." },
-  { keys: ["cateter", "catéter"], term: "Catéter", adult: "Es un tubito delgado y flexible que se coloca en una vena u otra parte del cuerpo para administrar medicamentos, líquidos o extraer muestras sin pinchar varias veces.", kid: "Es como una pajita muy fina que ayuda a que la medicina llegue sin más pinchazos." },
-  { keys: ["via intravenosa", "vía intravenosa", "suero", "intravenosa"], term: "Vía intravenosa (suero)", adult: "Es un pequeño tubo colocado en una vena, normalmente del brazo o la mano, por donde pasan líquidos, sales y medicamentos directamente a la sangre.", kid: "Es un tubito en tu brazo que te da agua y medicina para que tengas energía." },
-  { keys: ["anestesia", "anestesico", "sedacion", "sedación"], term: "Anestesia", adult: "Medicamentos que evitan el dolor durante un procedimiento. Puede ser local (solo una zona) o general (el paciente duerme profundamente y no siente nada). Un anestesiólogo vigila todo el tiempo.", kid: "Es un sueño especial para que no sientas nada mientras los doctores te ayudan." },
-  { keys: ["hemograma", "analisis de sangre", "análisis de sangre", "examen de sangre"], term: "Hemograma", adult: "Análisis de sangre que cuenta los glóbulos rojos, glóbulos blancos y plaquetas. Sirve para detectar anemia, infecciones u otros problemas.", kid: "Es contar los soldaditos y ayudantes que viajan por tu sangre." },
-  { keys: ["apendicectomia", "apendicectomía", "apendice", "apéndice", "apendicitis"], term: "Apendicectomía", adult: "Cirugía para retirar el apéndice cuando se inflama (apendicitis). El cuerpo funciona perfectamente sin él. Suele hacerse por laparoscopia, con heridas muy pequeñas.", kid: "Los doctores quitaron una partecita de tu pancita que estaba enojada y dolía. ¡No la necesitas!" },
-  { keys: ["laparoscopia", "laparoscopica", "laparoscópica"], term: "Laparoscopia", adult: "Técnica quirúrgica que usa una cámara pequeña y pequeñas incisiones en lugar de una gran herida. La recuperación suele ser más rápida y con menos dolor.", kid: "Los doctores usan una camarita muy chiquita para ver por dentro y solo hacen agujeritos pequeños." },
-  { keys: ["ecografia", "ecografía", "ultrasonido"], term: "Ecografía", adult: "Estudio de imagen que usa ondas de sonido para ver los órganos por dentro. No duele y no usa radiación.", kid: "Es una cámara que ve por dentro usando sonidos que no puedes oír, con un gel fresquito." },
-  { keys: ["radiografia", "radiografía", "rayos x", "placa"], term: "Radiografía", adult: "Imagen que usa una pequeña cantidad de rayos X para ver huesos y algunos órganos. Es rápida y no duele.", kid: "Es una foto especial que muestra tus huesos, ¡como un esqueleto!" },
-  { keys: ["resonancia", "resonancia magnetica"], term: "Resonancia magnética", adult: "Estudio de imagen con imanes y ondas de radio que muestra órganos y tejidos con mucho detalle. Hace ruido, pero no duele y no usa radiación.", kid: "Es como entrar a un túnel que toma fotos muy detalladas. Hace ruidos fuertes, pero no duele." },
-  { keys: ["antibiotico", "antibiótico", "antibioticos"], term: "Antibiótico", adult: "Medicamento que combate infecciones causadas por bacterias. Es importante completar todas las dosis indicadas, aunque el paciente se sienta mejor.", kid: "Es una medicina que pelea contra los bichitos que causan infecciones." },
-  { keys: ["amoxicilina"], term: "Amoxicilina", adult: "Antibiótico de la familia de las penicilinas. Se usa para prevenir o tratar infecciones bacterianas. Avisa al equipo si aparece sarpullido o diarrea.", kid: "Es una medicina que ayuda a que no lleguen bichitos a tu herida." },
-  { keys: ["paracetamol", "acetaminofen", "acetaminofén"], term: "Paracetamol", adult: "Analgésico y antipirético: calma el dolor y baja la fiebre. Se respetan los horarios para no superar la dosis máxima diaria.", kid: "Es la medicina que hace que el dolor y la fiebre se vayan." },
-  { keys: ["ibuprofeno"], term: "Ibuprofeno", adult: "Antiinflamatorio que reduce el dolor, la inflamación y la fiebre. Se toma preferiblemente con algo de comida.", kid: "Ayuda a que lo que está hinchado y duele se calme." },
-  { keys: ["ondansetron", "ondansetrón", "nauseas", "náuseas"], term: "Ondansetrón", adult: "Medicamento que previene o calma las náuseas y los vómitos, frecuentes después de una anestesia.", kid: "Es una medicina que hace que tu pancita deje de sentirse revuelta." },
-  { keys: ["analgesico", "analgésico"], term: "Analgésico", adult: "Cualquier medicamento cuyo objetivo es aliviar el dolor.", kid: "Una medicina para que algo deje de doler." },
-  { keys: ["alta", "alta medica", "alta médica"], term: "Alta médica", adult: "Es cuando el equipo médico decide que el paciente puede irse a casa. Se entregan indicaciones, recetas y la fecha del próximo control.", kid: "¡Es el día en que puedes volver a casa!" },
-  { keys: ["curacion", "curación", "herida", "sutura", "puntos"], term: "Curación de herida", adult: "Limpieza y revisión de una herida o de los puntos de sutura para que cicatrice bien y sin infección.", kid: "La enfermera limpia tu heridita y le pone una curita nueva." },
-  { keys: ["valoracion", "valoración", "triaje", "urgencias"], term: "Valoración", adult: "Evaluación en la que el equipo revisa los signos vitales, los síntomas y la historia del paciente para decidir los siguientes pasos.", kid: "Los doctores te conocen y revisan cómo estás." },
-  { keys: ["signos vitales", "saturacion", "saturación", "oximetro", "oxímetro"], term: "Signos vitales", adult: "Mediciones básicas: temperatura, frecuencia cardiaca, respiración, presión arterial y saturación de oxígeno (con un pequeño clip en el dedo).", kid: "Es revisar tu temperatura, tu corazón y cómo respiras. ¡El clip del dedo no duele!" },
-  { keys: ["fisioterapia", "rehabilitacion", "rehabilitación"], term: "Fisioterapia", adult: "Tratamiento con ejercicios y técnicas para recuperar movimiento, fuerza y equilibrio después de una lesión o cirugía.", kid: "Son ejercicios para que tu cuerpo vuelva a moverse fuerte." },
-  { keys: ["fiebre"], term: "Fiebre", adult: "Temperatura corporal por encima de 38 °C. Suele ser una respuesta del cuerpo a una infección. Avisa a enfermería si aparece.", kid: "Cuando tu cuerpo se pone calentito porque está peleando contra bichitos." },
-  { keys: ["inflamacion", "inflamación", "inflamado"], term: "Inflamación", adult: "Reacción del cuerpo ante una lesión o infección: la zona puede verse roja, hinchada, caliente y doler.", kid: "Cuando una parte del cuerpo se hincha porque se está curando." },
-  { keys: ["fractura", "hueso roto", "yeso", "reduccion", "reducción"], term: "Fractura", adult: "Rotura de un hueso. Se trata acomodándolo (reducción) e inmovilizando la zona con yeso o férula; a veces con cirugía. Los huesos de los niños sanan rápido.", kid: "Es cuando un hueso se rompe. ¡Los huesos se pegan solitos con el tiempo!" },
-  { keys: ["vacuna", "vacunas", "vacunacion", "vacunación"], term: "Vacuna", adult: "Protege contra enfermedades enseñándole al sistema inmune a reconocerlas. Puede causar molestia leve en el brazo o un poco de fiebre.", kid: "Es un entrenamiento para que tu cuerpo aprenda a defenderse de los bichitos." },
-];
-
-const normalize = (s) =>
-  s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[¿?¡!.,;:()"“”]/g, " ").replace(/\s+/g, " ").trim();
-
-function answer(question) {
-  const q = ` ${normalize(question)} `;
-  let best = null, bestLen = 0;
-  for (const entry of GLOSSARY) {
-    for (const k of entry.keys) {
-      const nk = normalize(k);
-      if (q.includes(` ${nk} `) && nk.length > bestLen) { best = entry; bestLen = nk.length; }
-    }
-  }
-  if (!best && /^\s*(hola|buenas|hey)\b/.test(q)) {
-    return "¡Hola! Escríbeme una palabra médica, por ejemplo <strong>anestesia</strong>, <strong>catéter</strong> o <strong>hemograma</strong>, y te la explico.";
-  }
-  if (!best) {
-    return "Todavía no conozco esa palabra. Te recomiendo preguntarle a tu enfermera o médico — ¡ninguna pregunta es tonta! También puedes escribirle al equipo en “Mensajes del equipo”.";
-  }
-  return `<strong>${best.term}:</strong> ${best.adult}<span class="kid">En palabras sencillas: ${best.kid}</span>`;
-}
-
-/* ---------- Chat del asistente ---------- */
-function setupChat(formId, inputId, logId) {
-  const form = document.getElementById(formId);
-  const input = document.getElementById(inputId);
-  const log = document.getElementById(logId);
-
-  const add = (html, who) => {
-    const div = document.createElement("div");
-    div.className = `msg ${who}`;
-    if (who === "user") div.textContent = html; else div.innerHTML = html;
-    log.appendChild(div);
-    log.scrollTop = log.scrollHeight;
-    return div;
-  };
-
-  const ask = (text) => {
-    if (!text.trim()) return;
-    add(text, "user");
-    const typing = add("<i></i><i></i><i></i>", "bot typing");
-    setTimeout(() => { typing.remove(); add(answer(text), "bot"); }, 650 + Math.random() * 400);
-  };
-
-  form.addEventListener("submit", (e) => { e.preventDefault(); ask(input.value); input.value = ""; });
-  return ask;
-}
-
-const askPreview = setupChat("previewForm", "previewInput", "previewLog");
-const askPortal = setupChat("portalForm", "portalInput", "portalLog");
-$$("#previewChips .chip").forEach((chip) => chip.addEventListener("click", () => askPreview(chip.dataset.q)));
-
-function askAbout(term) {
-  askPortal(`¿Qué es ${term}?`);
-  $("#portalLog").scrollIntoView({ behavior: "smooth", block: "center" });
-}
-
-/* ---------- Navegación y vistas ---------- */
-const views = { landing: $("#landing"), portal: $("#portal"), staff: $("#staff") };
-const navLinks = $("#navLinks");
-$("#navToggle").addEventListener("click", () => navLinks.classList.toggle("open"));
-$$("a", navLinks).forEach((a) => a.addEventListener("click", () => navLinks.classList.remove("open")));
-
-function showView(name) {
-  Object.entries(views).forEach(([k, el]) => (el.hidden = k !== name));
-  navLinks.hidden = name !== "landing";
-  $("#navCta").hidden = name !== "landing";
-  $("#navToggle").hidden = name !== "landing";
-  window.scrollTo({ top: 0 });
-}
-
-const setSession = (s) => { try { s ? sessionStorage.setItem("ww-session", JSON.stringify(s)) : sessionStorage.removeItem("ww-session"); } catch (_) {} };
-
-$$("[data-logout]").forEach((b) => b.addEventListener("click", () => {
-  setSession(null);
-  currentPatientId = null;
-  currentStaff = null;
-  selectedId = null;
-  $("#patientId").value = "";
-  $("#staffId").value = "";
-  $("#staffCode").value = "";
-  showView("landing");
-}));
-
-/* ---------- Login: pestañas ---------- */
-function switchRole(role) {
-  $$(".role-tab").forEach((t) => {
-    const on = t.dataset.role === role;
-    t.classList.toggle("active", on);
-    t.setAttribute("aria-selected", on);
-  });
-  $("#patientPane").hidden = role !== "patient";
-  $("#staffPane").hidden = role !== "staff";
-}
-$$(".role-tab").forEach((t) => t.addEventListener("click", () => switchRole(t.dataset.role)));
-$$("[data-open-staff]").forEach((a) => a.addEventListener("click", () => { switchRole("staff"); setTimeout(() => $("#staffId").focus(), 400); }));
-
-function shake(el) { el.classList.remove("shake"); void el.offsetWidth; el.classList.add("shake"); }
-const loginCard = $(".login-card");
-
-/* Login de paciente */
-const idInput = $("#patientId");
-const ID_PATTERN = /^WW-\d{4}-\d{2}$/;
-idInput.addEventListener("input", () => {
-  let raw = idInput.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
-  if (raw.startsWith("WW")) raw = raw.slice(2);
-  raw = raw.replace(/\D/g, "").slice(0, 6);
-  let out = "WW-" + raw.slice(0, 4);
-  if (raw.length > 4) out += "-" + raw.slice(4);
-  idInput.value = raw.length ? out : "";
-  $("#loginError").textContent = "";
-});
-$$("[data-demo]").forEach((b) => b.addEventListener("click", () => { idInput.value = b.dataset.demo; idInput.focus(); }));
-
-$("#loginForm").addEventListener("submit", (e) => {
-  e.preventDefault();
-  const id = idInput.value.trim().toUpperCase();
-  const err = $("#loginError");
-  if (!ID_PATTERN.test(id)) { err.textContent = "El ID debe tener el formato WW-0000-00."; return shake(loginCard); }
-  if (!db.patients[id]) { err.textContent = "No encontramos ese ID. Revisa tu pulsera o pregunta en enfermería."; return shake(loginCard); }
-  setSession({ role: "patient", id });
-  openPatient(id);
-});
-
-/* Login de personal */
-const staffIdInput = $("#staffId");
-staffIdInput.addEventListener("input", () => {
-  let v = staffIdInput.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
-  const letters = v.replace(/\d/g, "").slice(0, 3);
-  const digits = v.replace(/\D/g, "").slice(0, 4);
-  staffIdInput.value = letters + (letters.length === 3 && (digits || v.length > 3) ? "-" + digits : "");
-  $("#staffError").textContent = "";
-});
-$("#staffDemo").addEventListener("click", () => { staffIdInput.value = "MED-0042"; $("#staffCode").value = "2026"; });
-
-$("#staffForm").addEventListener("submit", (e) => {
-  e.preventDefault();
-  const id = staffIdInput.value.trim().toUpperCase();
-  const code = $("#staffCode").value.trim();
-  const acc = STAFF[id];
-  if (!acc || acc.code !== code) {
-    $("#staffError").textContent = "ID o código incorrecto.";
-    return shake(loginCard);
-  }
-  setSession({ role: "staff", id });
-  openStaff(id);
-});
+.mag-h::after { content: ""; display: block; width: 72px; height: 4px; margin-top: .5rem; background: var(--pomelo); }
+.small { font-size: .85rem; }
+.muted { opacity: .75; }
+.center { text-align: center; }
+.tilt-l { transform: rotate(-.8deg); }
+.tilt-r { transform: rotate(.8deg); }
 
 /* =========================================================
-   PANEL DEL PACIENTE
+   LETRAS RECORTADAS
    ========================================================= */
-let currentPatientId = null;
+.f-abril { font-family: "Abril Fatface", serif; }
+.f-alfa { font-family: "Alfa Slab One", serif; }
+.f-bebas { font-family: "Bebas Neue", sans-serif; }
+.f-bowlby { font-family: "Bowlby One", sans-serif; }
+.f-bungee { font-family: "Bungee", sans-serif; }
+.f-rubik { font-family: "Rubik Mono One", sans-serif; font-size: .8em !important; }
+.f-shrik { font-family: "Shrikhand", serif; }
+.f-ultra { font-family: "Ultra", serif; }
 
-function openPatient(id) {
-  currentPatientId = id;
-  showView("portal");
-  renderPatient();
+.cut { display: inline-flex; flex-wrap: wrap; align-items: center; row-gap: .12em; line-height: 1; font-weight: 400; }
+.cut-w { display: inline-flex; white-space: nowrap; filter: drop-shadow(2px 2px 0 var(--amaranth)); }
+.cut-sp { display: inline-block; width: .35em; }
+.cut-l {
+  display: inline-block;
+  font-size: var(--sz, 1em);
+  padding: .08em .14em .04em;
+  margin: 0 .015em;
+  transform: rotate(var(--rot, 0)) translateY(var(--dy, 0));
+  color: var(--amaranth);
+  transition: transform .25s ease;
 }
-
-function renderPatient() {
-  const p = db.patients[currentPatientId];
-  if (!p) return;
-  const hour = new Date().getHours();
-  $("#greetingNote").textContent = hour < 12 ? "buenos días," : hour < 19 ? "buenas tardes," : "buenas noches,";
-  $("#patientName").textContent = p.name.split(" ")[0];
-  $("#patientMeta").textContent = `${p.age} años · ${p.room} · ${p.reason} · ID ${p.id}`;
-
-  renderTimeline(p.procedures);
-  $("#visitsPanel").hidden = p.type !== "internado";
-  renderVisits(p);
-  renderUpcoming(p);
-  renderMeds(p.meds);
-  renderReminders(p);
-  renderThread($("#patientThread"), p.messages, "patient");
-  renderRecord(p);
-  renderDocs($("#patientDocs"), p, false);
-}
-
-function renderTimeline(procs) {
-  const svg = $("#timelineSvg");
-  const ns = "http://www.w3.org/2000/svg";
-  const list = withStatus(procs);
-  const empty = list.length === 0;
-  $("#timelineEmpty").hidden = !empty;
-  $(".timeline-scroll").hidden = empty;
-  $("#procDetail").hidden = empty;
-  $(".progress-row").hidden = empty;
-  if (empty) return;
-
-  const W = 1000, H = 210, padX = 70, midY = 105;
-  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
-  svg.innerHTML = "";
-
-  const step = list.length > 1 ? (W - padX * 2) / (list.length - 1) : 0;
-  const pts = list.map((_, i) => ({ x: list.length > 1 ? padX + i * step : W / 2, y: midY + (i % 2 ? 14 : -14) }));
-  const pathFor = (arr) => arr.reduce((d, pt, i) => {
-    if (i === 0) return `M ${pt.x} ${pt.y}`;
-    const prev = arr[i - 1], cx = (prev.x + pt.x) / 2;
-    return `${d} C ${cx} ${prev.y}, ${cx} ${pt.y}, ${pt.x} ${pt.y}`;
-  }, "");
-  const mk = (tag, attrs) => { const el = document.createElementNS(ns, tag); Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, v)); return el; };
-
-  const nextIdx = list.findIndex((p) => p.status === "next");
-  const lastDone = nextIdx === -1 ? pts.length - 1 : nextIdx;
-
-  if (pts.length > 1) {
-    svg.appendChild(mk("path", { d: pathFor(pts), fill: "none", stroke: "#988F8C", "stroke-width": 2.5, "stroke-dasharray": "6 7", "stroke-linecap": "round" }));
-    const done = mk("path", { d: pathFor(pts.slice(0, lastDone + 1)), fill: "none", stroke: "#486C79", "stroke-width": 4, "stroke-linecap": "round" });
-    svg.appendChild(done);
-    const len = done.getTotalLength();
-    if (len > 0) {
-      done.style.strokeDasharray = len;
-      done.style.strokeDashoffset = len;
-      done.getBoundingClientRect();
-      done.style.transition = "stroke-dashoffset 1.4s ease-out";
-      requestAnimationFrame(() => (done.style.strokeDashoffset = 0));
-    }
-  }
-
-  const nodes = [];
-  list.forEach((p, i) => {
-    const { x, y } = pts[i];
-    const s = p.status;
-    const g = mk("g", { class: "node", tabindex: 0, role: "button", "aria-label": `${p.title}, ${fmtDate(p.date)}` });
-    if (s === "next") g.appendChild(mk("circle", { cx: x, cy: y, r: 19, fill: "rgba(194,164,153,.35)" }));
-    const c = mk("circle", {
-      cx: x, cy: y, r: s === "next" ? 12 : 10,
-      fill: s === "done" ? "#486C79" : s === "next" ? "#C2A499" : "#FBF7F2",
-      stroke: s === "future" ? "#988F8C" : "#FBF7F2", "stroke-width": 3,
-    });
-    if (s === "future") c.setAttribute("stroke-dasharray", "4 3");
-    g.appendChild(c);
-    if (s === "done") g.appendChild(mk("path", { d: `M ${x - 4} ${y} l 3 3 l 5 -6`, fill: "none", stroke: "#fff", "stroke-width": 2, "stroke-linecap": "round" }));
-
-    const above = i % 2 === 0;
-    const label = mk("text", { x, y: above ? y - 46 : y + 54, "text-anchor": "middle", class: "t-label" });
-    label.textContent = p.title.length > 24 ? p.title.slice(0, 23) + "…" : p.title;
-    const date = mk("text", { x, y: above ? y - 26 : y + 34, "text-anchor": "middle", class: "t-date" });
-    date.textContent = fmtDay(p.date);
-    g.append(label, date);
-
-    const select = () => showProc(p, g, nodes);
-    g.addEventListener("click", select);
-    g.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); select(); } });
-    svg.appendChild(g);
-    nodes.push(g);
-  });
-
-  const doneCount = list.filter((p) => p.status === "done").length;
-  const pct = Math.round((doneCount / list.length) * 100);
-  const fill = $("#progressFill");
-  fill.style.width = "0";
-  requestAnimationFrame(() => setTimeout(() => (fill.style.width = pct + "%"), 50));
-  $("#progressLabel").textContent = `${doneCount} de ${list.length} pasos · ¡vas muy bien!`;
-
-  const startIdx = nextIdx === -1 ? list.length - 1 : nextIdx;
-  showProc(list[startIdx], nodes[startIdx], nodes);
-}
-
-function showProc(p, node, nodes) {
-  nodes.forEach((n) => n.classList.remove("active"));
-  node.classList.add("active");
-  const where = whereOf(p.area);
-  const box = $("#procDetail");
-  box.innerHTML = `
-    <div>
-      <span class="tag ${p.status}">${STATUS_TEXT[p.status]}</span><span class="muted">${esc(fmtDate(p.date))} · ${esc(p.time || "")}</span>
-      <h3>${esc(p.title)}</h3>
-      ${p.desc ? `<p>${esc(p.desc)}</p>` : ""}
-      <p class="proc-meta"><b>Responsable:</b> ${esc(p.doctor || "Por asignar")} · <b>Dónde:</b> ${esc(p.area || "Por definir")}${where && where !== "En tu habitación" ? ` — ${esc(where)}` : ""}</p>
-    </div>`;
-  const btn = document.createElement("button");
-  btn.className = "ask-btn";
-  btn.textContent = `¿Qué es “${p.title.toLowerCase()}”?`;
-  btn.addEventListener("click", () => askAbout(p.title.toLowerCase()));
-  box.appendChild(btn);
-}
-
-function renderVisits(p) {
-  const ul = $("#visitsList");
-  const visits = p.appointments.filter((a) => a.type === VISIT && a.date === todayISO()).sort(sortByDate);
-  if (!visits.length) { ul.innerHTML = `<li class="empty">Hoy no hay visitas programadas.</li>`; return; }
-  const now = new Date();
-  const mins = now.getHours() * 60 + now.getMinutes();
-  ul.innerHTML = visits.map((v) => {
-    const [h, m] = (v.time || "00:00").split(":").map(Number);
-    const doc = DOCTORS.find((d) => d.name === v.doctor);
-    return `<li class="${h * 60 + m + 30 < mins ? "past" : ""}">
-      <span class="visit-time">${esc(v.time)}</span>
-      <div><div class="visit-doc">${esc(v.doctor)}</div><div class="visit-role">${esc(doc ? doc.spec + " · " : "")}${esc(v.title)}</div></div>
-    </li>`;
-  }).join("");
-}
-
-function renderUpcoming(p) {
-  const t = todayISO();
-  const items = [
-    ...p.appointments.filter((a) => a.type !== VISIT && a.date >= t),
-    ...p.procedures.filter((x) => x.date >= t && x.area !== "Habitación del paciente").map((x) => ({ ...x, notes: x.desc })),
-  ].sort(sortByDate).slice(0, 6);
-  const ul = $("#upcomingList");
-  if (!items.length) { ul.innerHTML = `<li class="empty">No tienes citas fuera de tu habitación por ahora.</li>`; return; }
-  ul.innerHTML = items.map((a) => {
-    const d = parseISO(a.date);
-    const month = d.toLocaleDateString("es", { month: "short" }).replace(".", "");
-    return `<li>
-      <div class="date-chip"><b>${d.getDate()}</b><small>${esc(month)}</small></div>
-      <div>
-        <div class="up-title">${esc(a.title)}</div>
-        <div class="up-sub">${esc(fmtDay(a.date))} · ${esc(a.time)} · ${esc(a.doctor)}</div>
-        <div class="up-where">${esc(a.area)} — ${esc(whereOf(a.area))}</div>
-        ${a.notes ? `<div class="up-notes">${esc(a.notes)}</div>` : ""}
-      </div>
-    </li>`;
-  }).join("");
-}
-
-function renderMeds(meds) {
-  const ul = $("#medsList");
-  if (!meds.length) { ul.innerHTML = `<li class="empty" style="cursor:default;border:0;background:none;padding:0">Sin medicamentos activos.</li>`; return; }
-  ul.innerHTML = "";
-  meds.forEach((m) => {
-    const li = document.createElement("li");
-    li.title = "Toca para que el asistente te lo explique";
-    li.innerHTML = `
-      <div class="med-top"><span class="med-name">${esc(m.name)}</span><span class="med-dose">${esc(m.dose)}</span></div>
-      <div class="med-purpose">${esc(m.purpose || "")}</div>
-      <div class="med-next">${esc(m.every || "")}${m.next ? ` · próxima: ${esc(m.next)}` : ""}</div>`;
-    li.addEventListener("click", () => askAbout(m.name));
-    ul.appendChild(li);
-  });
-}
-
-function renderReminders(p) {
-  const ul = $("#remindersList");
-  const key = `ww-rem-${p.id}`;
-  let saved = {};
-  try { saved = JSON.parse(localStorage.getItem(key) || "{}"); } catch (_) {}
-  if (!p.reminders.length) { ul.innerHTML = `<li class="empty">Sin recordatorios.</li>`; return; }
-  ul.innerHTML = "";
-  p.reminders.forEach((r) => {
-    const li = document.createElement("li");
-    const cb = document.createElement("input");
-    cb.type = "checkbox";
-    cb.id = `rem-${r.id}`;
-    cb.checked = !!saved[r.id];
-    const label = document.createElement("label");
-    label.htmlFor = cb.id;
-    label.innerHTML = `<span class="rem-text">${esc(r.text)}</span><span class="rem-when">${esc(r.when || "")}</span>`;
-    li.classList.toggle("checked", cb.checked);
-    cb.addEventListener("change", () => {
-      li.classList.toggle("checked", cb.checked);
-      saved[r.id] = cb.checked;
-      try { localStorage.setItem(key, JSON.stringify(saved)); } catch (_) {}
-    });
-    li.append(cb, label);
-    ul.appendChild(li);
-  });
-}
-
-/* Conversación: `viewer` es "patient" o "staff" (los mensajes propios van a la derecha) */
-function renderThread(el, messages, viewer) {
-  if (!messages.length) {
-    el.innerHTML = `<p class="empty">${viewer === "staff" ? "Aún no hay mensajes con esta familia." : "Aquí verás los mensajes de tu equipo médico."}</p>`;
-    return;
-  }
-  el.innerHTML = messages.map((m) => `
-    <div class="bubble ${m.from === viewer ? "mine" : ""} ${m.important ? "important" : ""}">
-      <span class="bubble-meta">${esc(m.author)} · ${esc(fmtStamp(m.at))}${m.important ? '<span class="badge-imp">importante</span>' : ""}</span>
-      ${esc(m.text)}
-    </div>`).join("");
-  el.scrollTop = el.scrollHeight;
-}
-
-$("#patientReplyForm").addEventListener("submit", (e) => {
-  e.preventDefault();
-  const input = e.target.elements.text;
-  const text = input.value.trim();
-  const p = db.patients[currentPatientId];
-  if (!text || !p) return;
-  p.messages.push({ id: uid(), from: "patient", author: `${p.name.split(" ")[0]} / familia`, text, at: new Date().toISOString(), important: false, unread: true });
-  saveDB();
-  input.value = "";
-  renderThread($("#patientThread"), p.messages, "patient");
-});
-
-function renderRecord(p) {
-  const r = p.record || {};
-  const rows = [["Tipo de sangre", r.blood], ["Alergias", r.allergies], ["Peso", r.weight], ["Talla", r.height], ["Diagnóstico", r.diagnosis]]
-    .filter(([, v]) => v);
-  $("#patientRecord").innerHTML = rows.length || r.notes
-    ? rows.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("") +
-      (r.notes ? `<dd class="rec-notes">“${esc(r.notes)}”${r.by ? ` — ${esc(r.by)}` : ""}</dd>` : "")
-    : `<dd class="empty">El equipo médico aún no ha compartido datos.</dd>`;
-}
-
-function renderDocs(ul, p, editable) {
-  if (!p.docs.length) {
-    ul.innerHTML = `<li class="empty">${editable ? "Aún no se han subido documentos." : "Aún no hay documentos compartidos."}</li>`;
-    return;
-  }
-  ul.innerHTML = p.docs.map((d) => {
-    const ext = (d.name.split(".").pop() || "").slice(0, 4).toUpperCase();
-    return `<li class="doc">
-      <span class="doc-icon">${esc(ext)}</span>
-      <div class="doc-info">
-        <div class="doc-name" title="${esc(d.name)}">${esc(d.name)}</div>
-        <div class="doc-sub">${esc(d.category)} · ${esc(fmtSize(d.size))} · ${esc(fmtStamp(d.at))}</div>
-      </div>
-      <button class="mini-btn" data-open="${d.id}">Ver</button>
-      ${editable ? `<button class="mini-btn danger" data-remove="${d.id}">Quitar</button>` : ""}
-    </li>`;
-  }).join("");
-}
-
-async function openDoc(doc) {
-  if (!doc || !doc.data) return toast("Este archivo no está disponible en este dispositivo.");
-  const blob = await (await fetch(doc.data)).blob();
-  const url = URL.createObjectURL(blob);
-  window.open(url, "_blank");
-  setTimeout(() => URL.revokeObjectURL(url), 60000);
-}
-
-$("#patientDocs").addEventListener("click", (e) => {
-  const id = e.target.dataset.open;
-  if (id) openDoc(db.patients[currentPatientId].docs.find((d) => d.id === id));
-});
+.cut-l.bg-amaranth { color: var(--chalk); }
+a:hover .cut-l, button:hover .cut-l { transform: rotate(calc(var(--rot) * -1)) translateY(var(--dy, 0)); }
 
 /* =========================================================
-   PANEL CLÍNICO
+   BOTONES Y CONTROLES
    ========================================================= */
-let currentStaff = null;
-let selectedId = null;
-let listFilter = "all";
-
-const sel = () => db.patients[selectedId];
-
-function openStaff(staffId) {
-  currentStaff = { id: staffId, ...STAFF[staffId] };
-  $("#staffName").textContent = currentStaff.name;
-  $("#staffMeta").textContent = `${currentStaff.role} · ID ${staffId} · ${new Date().toLocaleDateString("es", { weekday: "long", day: "numeric", month: "long" })}`;
-  showView("staff");
-  renderPatientList();
-  if (selectedId && db.patients[selectedId]) selectPatient(selectedId);
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: .45rem;
+  padding: .8rem 1.3rem;
+  border: 3px solid var(--amaranth);
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: .02em;
+  text-decoration: none;
+  box-shadow: var(--shadow-sm);
+  transition: transform .15s ease, box-shadow .15s ease;
+  background: var(--chalk);
 }
+.btn:hover { transform: translate(-1px, -2px); box-shadow: 4px 5px 0 var(--amaranth); }
+.btn:active { transform: translate(2px, 3px); box-shadow: 0 0 0 var(--amaranth); }
+.btn:disabled { opacity: .6; cursor: wait; }
+.btn-ink { background: var(--amaranth); color: var(--chalk); }
+.btn-brook { background: var(--brook); }
+.btn-ghost { background: transparent; }
+.btn-small { padding: .45rem .9rem; font-size: .88rem; border-width: 2.5px; }
+.btn-full { width: 100%; }
+.btn .ico { width: 18px; height: 18px; stroke: currentColor; }
 
-/* Rellenar selects de médicos, áreas y tipos de cita */
-$$(".doctor-select").forEach((s) => (s.innerHTML = DOCTORS.map((d) => `<option value="${esc(d.name)}">${esc(d.name)} — ${esc(d.spec)}</option>`).join("")));
-$$(".area-select").forEach((s) => (s.innerHTML = AREAS.map((a) => `<option value="${esc(a.name)}">${esc(a.name)}</option>`).join("")));
-$("#citaType").innerHTML = CITA_TYPES.map((t) => `<option>${esc(t)}</option>`).join("");
-$("#tplSelect").innerHTML = TEMPLATES.map((t, i) => `<option value="${i}">${esc(t.name)}</option>`).join("");
+.link-btn { background: none; border: 0; padding: 0; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; font-weight: 600; font-size: .88rem; }
 
-/* Lista de pacientes */
-function renderPatientList() {
-  const q = normalize($("#patientSearch").value || "");
-  const list = Object.values(db.patients)
-    .filter((p) => listFilter === "all" || p.type === listFilter)
-    .filter((p) => !q || normalize(p.name).includes(q) || p.id.toLowerCase().includes(q.replace(/\s/g, "")))
-    .sort((a, b) => a.name.localeCompare(b.name));
-  const ul = $("#patientList");
-  if (!list.length) { ul.innerHTML = `<li class="empty">Sin resultados.</li>`; return; }
-  ul.innerHTML = list.map((p) => {
-    const unread = p.messages.some((m) => m.from === "patient" && m.unread);
-    return `<li><button class="patient-item ${p.id === selectedId ? "active" : ""}" data-id="${p.id}">
-      <span class="pi-name">${esc(p.name)}${unread ? '<i class="unread-dot" title="Mensaje nuevo"></i>' : ""}<span class="pi-type ${p.type}">${p.type === "internado" ? "internado" : "con cita"}</span></span>
-      <span class="pi-sub">${esc(p.id)} · ${esc(p.reason)}</span>
-    </button></li>`;
-  }).join("");
+.pill {
+  display: inline-flex; align-items: center; gap: .4rem;
+  padding: .45rem .9rem;
+  border: 2.5px solid var(--amaranth);
+  border-radius: 999px;
+  background: var(--chalk);
+  font-weight: 600; font-size: .9rem;
 }
-$("#patientList").addEventListener("click", (e) => {
-  const b = e.target.closest(".patient-item");
-  if (b) selectPatient(b.dataset.id);
-});
-$("#patientSearch").addEventListener("input", renderPatientList);
-$$("#filterRow .filter").forEach((f) => f.addEventListener("click", () => {
-  listFilter = f.dataset.filter;
-  $$("#filterRow .filter").forEach((x) => x.classList.toggle("active", x === f));
-  renderPatientList();
-}));
+.pill.on { background: var(--amaranth); color: var(--chalk); }
+.pill .ico { width: 20px; height: 20px; }
 
-function selectPatient(id) {
-  selectedId = id;
-  resetForm($("#procForm"));
-  resetForm($("#citaForm"));
-  $("#staffEmpty").hidden = true;
-  $("#staffPatient").hidden = false;
-  renderStaffPatient();
-  renderPatientList();
+.round-btn { width: 46px; height: 46px; border-radius: 50%; border: 3px solid var(--amaranth); background: var(--brook); font-size: 1.2rem; font-weight: 700; box-shadow: var(--shadow-sm); }
+.round-btn:hover { background: var(--chalk); }
+
+.ico { width: 40px; height: 40px; fill: none; stroke: var(--amaranth); stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+
+.tag { display: inline-block; padding: .05rem .5rem; border: 2px solid var(--amaranth); border-radius: 999px; font-size: .75rem; font-weight: 600; background: var(--chalk); text-transform: lowercase; }
+.tag.big { font-size: .95rem; padding: .2rem .7rem; }
+
+input, textarea {
+  width: 100%;
+  font: inherit; color: var(--amaranth);
+  padding: .8rem 1rem;
+  border: 3px solid var(--amaranth);
+  border-radius: var(--radius);
+  background: var(--chalk);
 }
+input::placeholder, textarea::placeholder { color: var(--amaranth); opacity: .5; }
+label, .lbl { display: block; font-weight: 600; margin: 1rem 0 .4rem; }
+.form-error { min-height: 1.3em; margin-top: .6rem; font-weight: 600; color: var(--amaranth); }
+.form-error:not(:empty)::before { content: "✗ "; }
 
-function renderStaffPatient() {
-  const p = sel();
-  if (!p) return;
-  $("#spName").textContent = p.name;
-  $("#spMeta").textContent = `${p.age} años · ${p.type === "internado" ? "Internado" : "Con cita (no internado)"} · ${p.room} · ${p.reason}`;
-  $("#spId").textContent = p.id;
-  renderAdminProcs();
-  renderAdminCitas();
-  renderAdminReminders();
-  renderAdminMessages();
-  renderAdminRecord();
-  renderDocs($("#staffDocs"), p, true);
-  renderAdminMeds();
-  renderTplPreview();
+.paper {
+  position: relative;
+  background: var(--brook);
+  border: 3px solid var(--amaranth);
+  border-radius: var(--radius);
+  padding: 1.6rem;
+  box-shadow: var(--shadow);
 }
-
-/* Pestañas */
-function switchTab(tab) {
-  $$("#staffTabs .staff-tab").forEach((t) => t.classList.toggle("active", t.dataset.tab === tab));
-  $$("#staffPatient .tab-pane").forEach((p) => (p.hidden = p.dataset.pane !== tab));
-  if (tab === "mensajes") {
-    const p = sel();
-    let changed = false;
-    p.messages.forEach((m) => { if (m.unread) { m.unread = false; changed = true; } });
-    if (changed) { saveDB(); renderPatientList(); }
-    renderAdminMessages();
-  }
+.tape {
+  position: absolute; top: -14px; left: 50%;
+  width: 110px; height: 28px;
+  transform: translateX(-50%) rotate(-3deg);
+  background: var(--pomelo);
+  border: 0;
+  opacity: .85;
 }
-$$("#staffTabs .staff-tab").forEach((t) => t.addEventListener("click", () => switchTab(t.dataset.tab)));
-
-/* Helpers de formularios */
-const readForm = (form) => Object.fromEntries(new FormData(form).entries());
-function fillForm(form, obj) {
-  [...form.elements].forEach((el) => { if (el.name && obj[el.name] !== undefined) el.value = obj[el.name]; });
-}
-function resetForm(form) {
-  form.reset();
-  if (form.elements.id) form.elements.id.value = "";
-  const submit = $("[data-submit]", form);
-  if (submit) submit.textContent = form.id === "procForm" ? "Agregar procedimiento" : "Agendar cita";
-  const title = $("[data-form-title]", form);
-  if (title) title.textContent = form.id === "procForm" ? "Agregar procedimiento" : "Agendar cita";
-  const cancel = $("[data-cancel]", form);
-  if (cancel) cancel.hidden = true;
-  if (form.elements.date) form.elements.date.value = todayISO();
-  $$(".admin-item.editing").forEach((li) => li.classList.remove("editing"));
-  if (form.id === "citaForm") updateWhereHint();
-}
-function startEdit(form, item, label) {
-  fillForm(form, item);
-  $("[data-submit]", form).textContent = "Guardar cambios";
-  $("[data-form-title]", form).textContent = `Editar: ${item.title}`;
-  $("[data-cancel]", form).hidden = false;
-  if (form.id === "citaForm") updateWhereHint();
-  form.scrollIntoView({ behavior: "smooth", block: "center" });
-  toast(`Editando “${label}”`);
-}
-$$("[data-cancel]").forEach((b) => b.addEventListener("click", () => resetForm(b.closest("form"))));
-
-/* --- Procedimientos --- */
-function renderAdminProcs() {
-  const ul = $("#spProcs");
-  const list = withStatus(sel().procedures);
-  ul.innerHTML = list.length ? list.map((p) => `
-    <li class="admin-item" data-id="${p.id}">
-      <div>
-        <span class="tag ${p.status}">${STATUS_TEXT[p.status]}</span><strong>${esc(p.title)}</strong>
-        <div class="admin-sub">${esc(fmtDate(p.date))} · ${esc(p.time)} — ${esc(p.doctor)} · ${esc(p.area)}</div>
-      </div>
-      <div class="admin-actions">
-        <button class="mini-btn" data-edit="${p.id}">Editar</button>
-        <button class="mini-btn danger" data-del="${p.id}">Eliminar</button>
-      </div>
-    </li>`).join("") : `<li class="empty">Sin procedimientos registrados. Usa el plan automático o agrégalos uno por uno.</li>`;
-}
-$("#spProcs").addEventListener("click", (e) => {
-  const p = sel();
-  const { edit, del } = e.target.dataset;
-  if (edit) {
-    const item = p.procedures.find((x) => x.id === edit);
-    startEdit($("#procForm"), item, item.title);
-    e.target.closest(".admin-item").classList.add("editing");
-  }
-  if (del) {
-    const item = p.procedures.find((x) => x.id === del);
-    if (!confirm(`¿Eliminar “${item.title}” del plan de ${p.name}?`)) return;
-    p.procedures = p.procedures.filter((x) => x.id !== del);
-    saveDB(); renderAdminProcs(); resetForm($("#procForm"));
-    toast("Procedimiento eliminado.");
-  }
-});
-$("#procForm").addEventListener("submit", (e) => {
-  e.preventDefault();
-  const p = sel();
-  const data = readForm(e.target);
-  if (data.id) {
-    Object.assign(p.procedures.find((x) => x.id === data.id), data);
-    toast("Cambios guardados. La familia ya los ve.");
-  } else {
-    p.procedures.push({ ...data, id: uid() });
-    toast(`“${data.title}” se agregó al plan de ${p.name.split(" ")[0]}.`);
-  }
-  saveDB(); renderAdminProcs(); resetForm(e.target);
-});
-
-/* --- Plan automático --- */
-function renderTplPreview() {
-  const tpl = TEMPLATES[$("#tplSelect").value];
-  const base = $("#tplDate").value || todayISO();
-  const baseDate = parseISO(base);
-  $("#tplPreview").innerHTML = tpl.steps.map((s) => {
-    const d = new Date(baseDate); d.setDate(d.getDate() + s.d);
-    return `<li><b>${esc(s.title)}</b> <span>· ${esc(fmtDate(iso(d)))} ${esc(s.time)} · ${esc(s.doctor)} · ${esc(s.area)}</span></li>`;
-  }).join("");
-}
-$("#tplDate").value = todayISO();
-$("#tplSelect").addEventListener("change", renderTplPreview);
-$("#tplDate").addEventListener("change", renderTplPreview);
-$("#tplApply").addEventListener("click", () => {
-  const p = sel();
-  const tpl = TEMPLATES[$("#tplSelect").value];
-  const baseDate = parseISO($("#tplDate").value || todayISO());
-  tpl.steps.forEach((s) => {
-    const d = new Date(baseDate); d.setDate(d.getDate() + s.d);
-    p.procedures.push({ id: uid(), title: s.title, date: iso(d), time: s.time, doctor: s.doctor, area: s.area, desc: s.desc });
-  });
-  saveDB(); renderAdminProcs();
-  toast(`Se agregaron ${tpl.steps.length} pasos de “${tpl.name}”.`);
-});
-
-/* --- Citas --- */
-function renderAdminCitas() {
-  const ul = $("#spCitas");
-  const list = [...sel().appointments].sort(sortByDate);
-  ul.innerHTML = list.length ? list.map((a) => `
-    <li class="admin-item" data-id="${a.id}">
-      <div>
-        <span class="type-pill ${a.type === VISIT ? "visit" : ""}">${esc(a.type)}</span><strong>${esc(a.title)}</strong>
-        <div class="admin-sub">${esc(fmtDay(a.date))} · ${esc(a.time)} — ${esc(a.doctor)} · ${esc(a.area)}${whereOf(a.area) && a.type !== VISIT ? ` (${esc(whereOf(a.area))})` : ""}</div>
-      </div>
-      <div class="admin-actions">
-        <button class="mini-btn" data-edit="${a.id}">Editar</button>
-        <button class="mini-btn danger" data-del="${a.id}">Eliminar</button>
-      </div>
-    </li>`).join("") : `<li class="empty">Sin citas agendadas.</li>`;
-}
-$("#spCitas").addEventListener("click", (e) => {
-  const p = sel();
-  const { edit, del } = e.target.dataset;
-  if (edit) {
-    const item = p.appointments.find((x) => x.id === edit);
-    startEdit($("#citaForm"), item, item.title);
-    e.target.closest(".admin-item").classList.add("editing");
-  }
-  if (del) {
-    const item = p.appointments.find((x) => x.id === del);
-    if (!confirm(`¿Eliminar la cita “${item.title}”?`)) return;
-    p.appointments = p.appointments.filter((x) => x.id !== del);
-    saveDB(); renderAdminCitas(); resetForm($("#citaForm"));
-    toast("Cita eliminada.");
-  }
-});
-function updateWhereHint() {
-  const f = $("#citaForm");
-  const where = whereOf(f.elements.area.value);
-  $("#citaWhere").textContent = where ? `La familia verá: ${where}` : "";
-}
-$("#citaForm").elements.area.addEventListener("change", updateWhereHint);
-$("#citaType").addEventListener("change", (e) => {
-  if (e.target.value === VISIT) $("#citaForm").elements.area.value = "Habitación del paciente";
-  updateWhereHint();
-});
-$("#citaForm").addEventListener("submit", (e) => {
-  e.preventDefault();
-  const p = sel();
-  const data = readForm(e.target);
-  if (data.id) {
-    Object.assign(p.appointments.find((x) => x.id === data.id), data);
-    toast("Cita actualizada.");
-  } else {
-    p.appointments.push({ ...data, id: uid() });
-    toast(`Cita agendada para ${fmtDay(data.date)} a las ${data.time}.`);
-  }
-  saveDB(); renderAdminCitas(); resetForm(e.target);
-});
-
-/* --- Recordatorios --- */
-function renderAdminReminders() {
-  const ul = $("#spReminders");
-  const list = sel().reminders;
-  ul.innerHTML = list.length ? list.map((r) => `
-    <li class="admin-item">
-      <div><strong>${esc(r.text)}</strong><div class="admin-sub">${esc(r.when || "")}</div></div>
-      <div class="admin-actions"><button class="mini-btn danger" data-del="${r.id}">Quitar</button></div>
-    </li>`).join("") : `<li class="empty">Sin recordatorios.</li>`;
-}
-$("#spReminders").addEventListener("click", (e) => {
-  const id = e.target.dataset.del;
-  if (!id) return;
-  sel().reminders = sel().reminders.filter((r) => r.id !== id);
-  saveDB(); renderAdminReminders();
-});
-$("#reminderForm").addEventListener("submit", (e) => {
-  e.preventDefault();
-  const data = readForm(e.target);
-  sel().reminders.push({ id: uid(), text: data.text.trim(), when: data.when.trim() });
-  saveDB(); renderAdminReminders(); e.target.reset();
-  toast("Recordatorio agregado.");
-});
-
-/* --- Mensajes --- */
-function renderAdminMessages() {
-  const p = sel();
-  renderThread($("#staffThread"), p.messages, "staff");
-  const unread = p.messages.filter((m) => m.from === "patient" && m.unread).length;
-  $("#msgCount").hidden = !unread;
-  $("#msgCount").textContent = unread;
-}
-$$("#quickMsgs .chip").forEach((c) => c.addEventListener("click", () => {
-  const ta = $("#staffMsgForm").elements.text;
-  ta.value = c.dataset.text;
-  ta.focus();
-}));
-$("#staffMsgForm").addEventListener("submit", (e) => {
-  e.preventDefault();
-  const f = e.target;
-  const text = f.elements.text.value.trim();
-  if (!text) return;
-  sel().messages.push({ id: uid(), from: "staff", author: currentStaff.name, text, at: new Date().toISOString(), important: f.elements.important.checked });
-  saveDB(); f.reset(); renderAdminMessages();
-  toast("Mensaje enviado a la familia.");
-});
-
-/* --- Expediente: datos clínicos --- */
-function renderAdminRecord() {
-  const r = sel().record || {};
-  const f = $("#recordForm");
-  f.reset();
-  fillForm(f, r);
-  $("#recordUpdated").textContent = r.updated ? `Última actualización: ${fmtStamp(r.updated)}${r.by ? ` por ${r.by}` : ""}` : "";
-}
-$("#recordForm").addEventListener("submit", (e) => {
-  e.preventDefault();
-  sel().record = { ...readForm(e.target), updated: new Date().toISOString(), by: currentStaff.name };
-  saveDB(); renderAdminRecord();
-  toast("Expediente actualizado.");
-});
-
-/* --- Expediente: archivos --- */
-const MAX_FILE = 2 * 1024 * 1024;
-const readAsDataURL = (file) => new Promise((res, rej) => {
-  const r = new FileReader();
-  r.onload = () => res(r.result);
-  r.onerror = rej;
-  r.readAsDataURL(file);
-});
-
-async function uploadFiles(files) {
-  const p = sel();
-  if (!p) return;
-  const category = $("#docCategory").value;
-  let added = 0;
-  for (const file of files) {
-    const okType = file.type === "application/pdf" || file.type.startsWith("image/");
-    if (!okType) { toast(`“${file.name}” no es PDF ni imagen.`); continue; }
-    if (file.size > MAX_FILE) { toast(`“${file.name}” pesa más de 2 MB.`); continue; }
-    const doc = { id: uid(), name: file.name, size: file.size, type: file.type, category, data: await readAsDataURL(file), at: new Date().toISOString(), by: currentStaff.name };
-    p.docs.unshift(doc);
-    if (!saveDB()) { p.docs.shift(); break; }
-    added++;
-  }
-  renderDocs($("#staffDocs"), p, true);
-  if (added) toast(added === 1 ? "Documento subido al expediente." : `${added} documentos subidos al expediente.`);
-}
-
-const dropzone = $("#dropzone");
-$("#docInput").addEventListener("change", (e) => { uploadFiles([...e.target.files]); e.target.value = ""; });
-["dragenter", "dragover"].forEach((ev) => dropzone.addEventListener(ev, (e) => { e.preventDefault(); dropzone.classList.add("over"); }));
-["dragleave", "drop"].forEach((ev) => dropzone.addEventListener(ev, (e) => { e.preventDefault(); dropzone.classList.remove("over"); }));
-dropzone.addEventListener("drop", (e) => uploadFiles([...e.dataTransfer.files]));
-
-$("#staffDocs").addEventListener("click", (e) => {
-  const p = sel();
-  const { open, remove } = e.target.dataset;
-  if (open) openDoc(p.docs.find((d) => d.id === open));
-  if (remove) {
-    const d = p.docs.find((x) => x.id === remove);
-    if (!confirm(`¿Quitar “${d.name}” del expediente?`)) return;
-    p.docs = p.docs.filter((x) => x.id !== remove);
-    saveDB(); renderDocs($("#staffDocs"), p, true);
-  }
-});
-
-/* --- Medicamentos --- */
-function renderAdminMeds() {
-  const ul = $("#spMeds");
-  const list = sel().meds;
-  ul.innerHTML = list.length ? list.map((m) => `
-    <li class="admin-item">
-      <div><strong>${esc(m.name)}</strong> <span class="muted">${esc(m.dose)}</span>
-        <div class="admin-sub">${esc(m.purpose || "")}${m.every ? ` · ${esc(m.every)}` : ""}${m.next ? ` · próxima ${esc(m.next)}` : ""}</div></div>
-      <div class="admin-actions"><button class="mini-btn danger" data-del="${m.id}">Suspender</button></div>
-    </li>`).join("") : `<li class="empty">Sin medicamentos activos.</li>`;
-}
-$("#spMeds").addEventListener("click", (e) => {
-  const id = e.target.dataset.del;
-  if (!id) return;
-  const m = sel().meds.find((x) => x.id === id);
-  if (!confirm(`¿Suspender ${m.name}?`)) return;
-  sel().meds = sel().meds.filter((x) => x.id !== id);
-  saveDB(); renderAdminMeds();
-});
-$("#medForm").addEventListener("submit", (e) => {
-  e.preventDefault();
-  sel().meds.push({ id: uid(), ...readForm(e.target) });
-  saveDB(); renderAdminMeds(); e.target.reset();
-  toast("Medicamento agregado.");
-});
-
-/* --- Nuevo paciente --- */
-const dialog = $("#newPatientDialog");
-$("#newPatientBtn").addEventListener("click", () => { $("#newPatientForm").reset(); dialog.showModal(); });
-$("#cancelNewPatient").addEventListener("click", () => dialog.close());
-
-function generateId() {
-  let id;
-  do {
-    id = `WW-${String(Math.floor(Math.random() * 10000)).padStart(4, "0")}-${String(Math.floor(Math.random() * 100)).padStart(2, "0")}`;
-  } while (db.patients[id]);
-  return id;
-}
-
-$("#newPatientForm").addEventListener("submit", (e) => {
-  e.preventDefault();
-  const d = readForm(e.target);
-  const id = generateId();
-  db.patients[id] = {
-    id, name: d.name.trim(), age: Number(d.age), type: d.type,
-    room: d.room.trim() || (d.type === "internado" ? "Hospitalización" : "Consulta externa"),
-    reason: d.reason.trim(),
-    procedures: [], appointments: [], meds: [], reminders: [], messages: [], docs: [],
-    record: { updated: new Date().toISOString(), by: currentStaff.name },
-  };
-  saveDB();
-  dialog.close();
-  selectPatient(id);
-  switchTab(d.type === "internado" ? "procs" : "citas");
-  toast(`Paciente registrado. Su ID es ${id} — entrégalo a la familia.`);
-});
-
-/* ---------- Animación al hacer scroll ---------- */
-const revealEls = $$(".feature, .step, .hospital-note, .chat-card");
-if ("IntersectionObserver" in window) {
-  const io = new IntersectionObserver((entries) => {
-    entries.forEach((en) => { if (en.isIntersecting) { en.target.classList.add("in"); io.unobserve(en.target); } });
-  }, { threshold: 0.15 });
-  revealEls.forEach((el) => { el.classList.add("reveal"); io.observe(el); });
-}
-
-/* ---------- Sincronizar entre pestañas ----------
-   Si el personal actualiza algo en otra pestaña, la vista del paciente se refresca sola. */
-window.addEventListener("storage", (e) => {
-  if (e.key !== DB_KEY) return;
-  db = loadDB();
-  if (!views.portal.hidden && currentPatientId) renderPatient();
-  if (!views.staff.hidden && currentStaff) {
-    renderPatientList();
-    if (sel()) { renderAdminMessages(); renderAdminProcs(); renderAdminCitas(); renderDocs($("#staffDocs"), sel(), true); }
-  }
-});
-
-/* ---------- Restaurar sesión ---------- */
-try {
-  const s = JSON.parse(sessionStorage.getItem("ww-session") || "null");
-  if (s && s.role === "patient" && db.patients[s.id]) openPatient(s.id);
-  if (s && s.role === "staff" && STAFF[s.id]) openStaff(s.id);
-} catch (_) {}
 
 /* =========================================================
-   MI CUENTA · Supabase Auth (correo y contraseña)
-   Solo usa la publishable key. La seguridad de "perfiles"
-   la dan las políticas RLS que ya existen en Supabase.
+   NAVEGACIÓN
    ========================================================= */
-const SUPABASE_URL = "https://xkfoiggivoxiwwkzcpbe.supabase.co";
-const SUPABASE_KEY = "sb_publishable_4v_AY40WLUYn78Bn1dETlQ_PJnc5bEK";
-const sb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+.nav {
+  position: sticky; top: 0; z-index: 50;
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  padding: .7rem clamp(16px, 4vw, 48px);
+  background: var(--chalk);
+  border-bottom: 3px solid var(--amaranth);
+}
+.logo { text-decoration: none; font-size: clamp(1.15rem, 3.5vw, 2rem); flex: none; }
+.logo .cut { flex-wrap: nowrap; }
+.nav-link { white-space: nowrap; }
+.nav-links { display: flex; align-items: center; gap: .6rem; }
+.nav-link {
+  display: inline-flex; align-items: center; gap: .4rem;
+  padding: .5rem 1rem;
+  border: 3px solid var(--amaranth);
+  border-radius: 999px;
+  text-decoration: none; font-weight: 600;
+  background: var(--brook);
+  box-shadow: var(--shadow-sm);
+  transition: transform .15s ease;
+}
+.nav-link:hover { transform: rotate(-2deg) translateY(-2px); }
+.nav-link.active { background: var(--chalk); }
+.nav-cta { background: var(--amaranth); color: var(--chalk); }
+.nav-cta.active { background: var(--amaranth); }
+.nav-lupi { display: inline-flex; width: 24px; height: 24px; margin: -4px 0; }
+.nav-lupi svg { width: 24px; height: 24px; }
 
-// Mostrar u ocultar la pestaña "Mi cuenta" (las otras dos las maneja switchRole)
-$$(".role-tab").forEach((t) =>
-  t.addEventListener("click", () => { $("#accountPane").hidden = t.dataset.role !== "account"; })
-);
+/* =========================================================
+   INICIO
+   ========================================================= */
+.view { padding: 0 clamp(16px, 4vw, 48px) 3rem; max-width: 1240px; margin: 0 auto; }
+.view[data-view="home"] { max-width: none; padding-left: 0; padding-right: 0; }
 
-function authMessage(error) {
-  const msg = ((error && error.message) || "").toLowerCase();
-  if (msg.includes("already registered") || msg.includes("already been registered")) return "Ese correo ya está registrado. Inicia sesión.";
-  if (msg.includes("at least 6") || msg.includes("password should be")) return "La contraseña debe tener al menos 6 caracteres.";
-  if (msg.includes("invalid login credentials")) return "Correo o contraseña incorrectos.";
-  if (msg.includes("email not confirmed")) return "Confirma tu correo antes de iniciar sesión.";
-  if (msg.includes("invalid") && msg.includes("email")) return "Escribe un correo válido.";
-  return (error && error.message) || "Ocurrió un error. Intenta de nuevo.";
+.hero { position: relative; text-align: center; padding: clamp(2.5rem, 8vw, 5.5rem) 16px 2.5rem; }
+.hero-title { display: flex; justify-content: center; width: 100%; font-size: clamp(2.4rem, 11vw, 8rem); }
+.hero-title .cut { justify-content: center; flex-wrap: nowrap; }
+.hero { min-height: min(62vh, 560px); display: flex; flex-direction: column; justify-content: center; align-items: center; }
+.hero-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: .8rem; margin-top: 2.2rem; }
+.hero-actions .btn { font-size: 1.05rem; padding: 1rem 1.6rem; }
+.hero-stickers .sticker {
+  position: absolute;
+  padding: .45rem .9rem;
+  border: 3px solid var(--amaranth);
+  border-radius: 999px;
+  font-weight: 700; font-size: .9rem;
+  box-shadow: var(--shadow-sm);
+  animation: bob 4s ease-in-out infinite;
+}
+.hero-stickers .sticker { font-family: var(--serif); font-style: italic; font-size: 1.05rem; }
+.s-a { background: var(--brook); top: 18%; left: 7%; transform: rotate(-10deg); }
+.s-b { background: var(--amaranth); color: var(--chalk); top: 30%; right: 6%; transform: rotate(8deg); animation-delay: -1.2s !important; }
+.s-c { background: var(--chalk); bottom: 8%; left: 14%; transform: rotate(5deg); animation-delay: -2.4s !important; }
+@keyframes bob { 50% { translate: 0 -8px; } }
+@media (max-width: 1100px) { .hero-stickers { display: none; } }
+.s-a { top: 10% !important; left: 4% !important; }
+.s-b { top: 14% !important; right: 4% !important; }
+.s-c { bottom: 6% !important; left: 8% !important; }
+
+.marquee { overflow: hidden; border-block: 3px solid var(--amaranth); background: var(--pomelo); padding: .7rem 0; transform: rotate(-1.2deg); margin: 1rem -10px 3rem; }
+.marquee-track { display: flex; width: max-content; gap: .8rem; align-items: center; animation: slide 36s linear infinite; }
+.mq-item { padding: .2rem .9rem; border: 2.5px solid var(--amaranth); border-radius: 2px; font-weight: 700; font-style: italic; font-size: 1.1rem; white-space: nowrap; }
+.mq-star { font-size: 1.3rem; color: var(--chalk); }
+@keyframes slide { to { transform: translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) { .marquee-track, .hero-stickers .sticker { animation: none; } }
+
+.section-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; padding: 0 clamp(16px, 4vw, 48px); max-width: 1240px; margin: 0 auto 1.2rem; }
+.section-head .kicker, .fold-wrap .kicker { display: block; margin-bottom: .4rem; }
+.carousel-ctrl { display: flex; gap: .5rem; }
+
+.carousel {
+  display: flex; gap: 20px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  padding: 1.2rem max(16px, calc((100vw - 1240px) / 2 + 48px)) 1.6rem;
+  scrollbar-width: none;
+  cursor: grab;
+}
+.carousel::-webkit-scrollbar { display: none; }
+.carousel.dragging { cursor: grabbing; scroll-snap-type: none; }
+.carousel.dragging .slide { pointer-events: none; }
+.slide {
+  flex: 0 0 min(300px, 78vw);
+  min-height: 340px;
+  scroll-snap-align: center;
+  display: flex; flex-direction: column; align-items: flex-start; gap: .8rem;
+  padding: 1.5rem;
+  text-align: left;
+  border: 3px solid var(--amaranth);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  transform: rotate(var(--tilt));
+  transition: transform .2s ease;
+}
+.slide:hover { transform: rotate(0) translateY(-6px); }
+.slide-ico { display: grid; place-items: center; width: 92px; height: 92px; border-radius: 50%; border: 3px solid var(--amaranth); background: var(--chalk); }
+.slide-ico .ico { width: 54px; height: 54px; }
+.slide-title { font-size: 2rem; font-weight: 700; font-style: italic; line-height: 1.05; margin-top: .4rem; }
+.slide-line { font-size: 1.05rem; }
+.slide-go { margin-top: auto; font-weight: 700; padding: .35rem .9rem; border: 2.5px solid currentColor; border-radius: 2px; text-transform: uppercase; letter-spacing: .15em; font-size: .8rem; }
+.slide-ico .lupi-svg { width: 70px; height: 70px; }
+.dots { display: flex; justify-content: center; gap: .5rem; }
+.dot { width: 14px; height: 14px; border-radius: 50%; border: 2.5px solid var(--amaranth); background: var(--chalk); padding: 0; }
+.dot.on { background: var(--amaranth); width: 30px; border-radius: 999px; }
+
+.fold-wrap { max-width: 1240px; margin: 4rem auto 0; padding: 0 clamp(16px, 4vw, 48px); }
+.folds { display: grid; gap: 1rem; margin-top: 1.4rem; }
+@media (min-width: 820px) { .folds { grid-template-columns: 1fr 1fr; align-items: start; } }
+.fold { border: 3px solid var(--amaranth); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+.fold:nth-child(odd) { transform: rotate(-.6deg); }
+.fold:nth-child(even) { transform: rotate(.6deg); }
+.fold-btn { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 1.2rem 1.4rem; background: none; border: 0; font-size: clamp(1.4rem, 4vw, 1.9rem); font-weight: 700; font-style: italic; text-align: left; }
+.fold.bg-amaranth .fold-plus { color: var(--amaranth); }
+.fold-plus { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border: 3px solid var(--amaranth); border-radius: 50%; background: var(--chalk); font-size: 1.5rem; font-weight: 700; transition: transform .25s ease; }
+.fold.open .fold-plus { transform: rotate(45deg); }
+.fold-body { display: flex; flex-wrap: wrap; gap: .6rem; padding: 0 1.4rem 1.4rem; animation: drop .25s ease; }
+@keyframes drop { from { opacity: 0; transform: translateY(-6px); } }
+
+.foot { text-align: center; padding: 4rem 16px 1rem; display: grid; gap: .8rem; justify-items: center; }
+.foot-logo { font-size: 1.6rem; }
+
+/* =========================================================
+   ASISTENTE · LUPI
+   ========================================================= */
+.lupi-page { display: grid; gap: 2rem; padding-top: 2rem; }
+@media (min-width: 960px) { .lupi-page { grid-template-columns: 1fr 1.05fr; align-items: start; } .lupi-stage { position: sticky; top: 100px; } }
+.lupi-stage { display: flex; flex-direction: column; align-items: center; }
+.lupi-big { width: 240px; max-width: 60vw; }
+.lupi-big svg { width: 100%; height: auto; overflow: visible; }
+.lupi-body { transform-origin: 100px 100px; animation: float 3.2s ease-in-out infinite; }
+@keyframes float { 50% { transform: translateY(-8px) rotate(-3deg); } }
+.lupi-eye { animation: blink 4.5s infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes blink { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(.1); } }
+.lupi-eyes { transition: transform .2s ease; }
+.lupi-mouth-open { opacity: 0; }
+[data-state="thinking"] .lupi-body { animation: think .6s ease-in-out infinite alternate; }
+@keyframes think { from { transform: rotate(-8deg); } to { transform: rotate(8deg) translateY(-6px); } }
+[data-state="talking"] .lupi-mouth { opacity: 0; }
+[data-state="talking"] .lupi-mouth-open { animation: talk .25s infinite alternate; }
+@keyframes talk { from { opacity: 1; transform: scaleY(.4); } to { opacity: 1; transform: scaleY(1); } }
+.lupi-mouth-open { transform-box: fill-box; transform-origin: center; }
+
+.bubble {
+  position: relative;
+  width: 100%;
+  max-width: 520px;
+  margin-top: 1.4rem;
+  padding: 1.4rem 1.6rem;
+  border: 3px solid var(--amaranth);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+.bubble::before {
+  content: ""; position: absolute; top: -22px; left: 50%;
+  width: 34px; height: 34px;
+  background: inherit;
+  border-left: 3px solid var(--amaranth); border-top: 3px solid var(--amaranth);
+  transform: translateX(-50%) rotate(45deg) skew(8deg, 8deg);
+}
+.bubble.pop { animation: pop .35s cubic-bezier(.3, 1.6, .5, 1); }
+@keyframes pop { from { transform: scale(.85) rotate(-2deg); opacity: .4; } }
+.bubble-term { font-family: var(--serif); font-weight: 700; font-style: italic; font-size: 1.8rem; line-height: 1.1; margin-bottom: .6rem; overflow-wrap: anywhere; }
+.bubble-text p + p { margin-top: .6rem; }
+.bubble-text { font-size: 1.05rem; }
+.dots-loading { display: flex; gap: .4rem; padding: .6rem 0; }
+.dots-loading span { width: 12px; height: 12px; border-radius: 50%; background: var(--amaranth); animation: bounce .9s infinite; }
+.dots-loading span:nth-child(2) { animation-delay: .15s; }
+.dots-loading span:nth-child(3) { animation-delay: .3s; }
+@keyframes bounce { 50% { transform: translateY(-8px); } }
+
+.lupi-panel h1 { font-size: clamp(2rem, 6vw, 3.4rem); }
+.mode-switch { display: inline-flex; margin-top: 1.4rem; border: 3px solid var(--amaranth); border-radius: 999px; overflow: hidden; background: var(--chalk); }
+.mode-btn { border: 0; padding: .55rem 1.1rem; font-weight: 600; background: none; }
+.mode-btn.active { background: var(--brook); }
+.lupi-form { display: flex; gap: .6rem; margin-top: 1rem; }
+.lupi-form input { font-size: 1.1rem; background: var(--chalk); }
+.lupi-form .btn { flex: none; }
+@media (max-width: 520px) { .lupi-form { flex-direction: column; } }
+.chips { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }
+.chip { padding: .4rem .85rem; border: 2.5px solid var(--amaranth); border-radius: var(--radius); font-weight: 600; font-size: .9rem; box-shadow: var(--shadow-sm); transition: transform .15s; }
+.chip:nth-child(odd) { transform: rotate(-2deg); }
+.chip:nth-child(even) { transform: rotate(2deg); }
+.chip:hover { transform: rotate(0) scale(1.06); }
+.collection-head { display: flex; justify-content: space-between; align-items: center; margin-top: 2.4rem; }
+.collection-head .mag-h { font-size: 1.8rem; }
+.cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: .9rem; margin-top: 1rem; }
+.term-card { aspect-ratio: 3 / 4; display: flex; align-items: flex-end; padding: .8rem; border: 3px solid var(--amaranth); border-radius: var(--radius); box-shadow: var(--shadow-sm); text-align: left; transform: rotate(var(--rot)); transition: transform .2s; font-family: var(--serif); font-size: 1.05rem; line-height: 1.15; overflow-wrap: anywhere; }
+.term-card:hover { transform: rotate(0) translateY(-4px); }
+
+/* =========================================================
+   INGRESAR
+   ========================================================= */
+.login-page { max-width: 560px; margin: 0 auto; padding-top: 2.4rem; display: grid; gap: 1.6rem; justify-items: center; }
+.login-page h1 { font-size: clamp(2.6rem, 9vw, 4.5rem); }
+.role-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; width: 100%; }
+.role-card { display: grid; justify-items: center; gap: .4rem; padding: 1.2rem .6rem; border: 3px solid var(--amaranth); border-radius: var(--radius); background: var(--brook); box-shadow: var(--shadow-sm); font-size: clamp(1.1rem, 4vw, 1.5rem); transition: transform .15s; }
+.role-card:first-child { transform: rotate(-1.5deg); }
+.role-card:last-child { transform: rotate(1.5deg); background: var(--brook); }
+.role-card.active { box-shadow: var(--shadow); outline: 4px solid var(--amaranth); outline-offset: 3px; }
+.role-card:not(.active) { opacity: .7; }
+.role-card small { font-size: .85rem; font-weight: 600; }
+.login-form { width: 100%; }
+.login-form input { font-size: 1.15rem; letter-spacing: .04em; }
+.login-form .btn { margin-top: .6rem; font-size: 1.05rem; }
+.hint { margin-top: 1rem; font-size: .85rem; line-height: 1.8; }
+
+/* =========================================================
+   APP (paciente y personal)
+   ========================================================= */
+.app-head { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 1rem; padding: 1.8rem 0 1.2rem; }
+.app-hello { font-size: clamp(2rem, 6vw, 3.4rem); }
+.app-sub { font-weight: 500; margin-top: .4rem; }
+.app-head-right { display: flex; gap: .6rem; align-items: center; }
+.badge { padding: .25rem .7rem; border: 2.5px dashed var(--amaranth); border-radius: 999px; font-size: .8rem; font-weight: 700; background: var(--chalk); }
+
+.tabs { display: flex; gap: .6rem; overflow-x: auto; padding: .4rem 4px 1rem; scrollbar-width: thin; }
+.tab { flex: none; display: inline-flex; align-items: center; gap: .45rem; padding: .5rem .95rem .5rem .6rem; border: 3px solid var(--amaranth); border-radius: var(--radius); text-decoration: none; font-weight: 600; font-size: .92rem; box-shadow: var(--shadow-sm); transition: transform .15s; }
+.tab .ico { width: 26px; height: 26px; }
+.tab:hover { transform: translateY(-2px) rotate(-1deg); }
+.tab.on { background: var(--amaranth); color: var(--chalk); }
+.tab.on .ico { stroke: var(--chalk); }
+
+.app-body { padding-top: 1rem; }
+.sec-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.6rem; }
+.sub { border-bottom: 2px solid var(--amaranth); padding-bottom: .3rem; font-size: 1.6rem; }
+.sub { font-family: var(--serif); font-weight: 700; font-style: italic; font-size: 1.4rem; margin: 2.2rem 0 1rem; }
+.filter { display: flex; flex-wrap: wrap; gap: .5rem; }
+
+.card { display: block; padding: 1.3rem; border: 3px solid var(--amaranth); border-radius: var(--radius); box-shadow: var(--shadow); text-decoration: none; }
+a.card:hover { transform: translateY(-3px) rotate(0); }
+.card p + p { margin-top: .3rem; }
+.card-k { font-family: var(--serif); font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .22em; margin-bottom: .5rem; padding-bottom: .35rem; border-bottom: 1.5px solid currentColor; }
+.card-big { font-family: var(--serif); font-weight: 700; font-style: italic; font-size: 2.5rem; line-height: 1.05; }
+.grid-hoy { display: grid; gap: 1.2rem; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.grid-hoy .span-2 { grid-column: span 2; }
+@media (max-width: 560px) { .grid-hoy .span-2 { grid-column: auto; } }
+.grid-2 { display: grid; gap: 1.2rem; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.progress { height: 16px; border: 2.5px solid var(--amaranth); border-radius: 999px; background: var(--chalk); overflow: hidden; margin: .5rem 0; }
+.progress span { display: block; height: 100%; background: var(--amaranth); }
+
+.faces { display: flex; gap: .3rem; flex-wrap: wrap; }
+.face { width: 46px; height: 46px; padding: 0; border: 0; background: none; border-radius: 50%; transition: transform .15s; }
+.face svg { width: 100%; height: 100%; }
+.face:hover, .face.on { transform: scale(1.18) rotate(-6deg); }
+.face.on { filter: drop-shadow(2px 3px 0 var(--amaranth)); }
+.faces.big .face { width: 62px; height: 62px; }
+.face.sm { width: 40px; height: 40px; display: inline-block; flex: none; }
+
+/* línea del tiempo */
+.timeline { list-style: none; margin: 0; padding: 0 0 0 8px; position: relative; }
+.timeline::before { content: ""; position: absolute; left: 30px; top: 10px; bottom: 10px; border-left: 4px dashed var(--amaranth); }
+.tl-item { position: relative; display: grid; grid-template-columns: 48px 1fr; gap: 1rem; margin-bottom: 1.4rem; }
+.tl-dot { position: relative; z-index: 1; display: grid; place-items: center; width: 46px; height: 46px; border: 3px solid var(--amaranth); border-radius: 50%; font-family: var(--serif); box-shadow: var(--shadow-sm); }
+.tl-item.hoy .tl-dot { animation: pulse 1.6s ease-in-out infinite; }
+@keyframes pulse { 50% { transform: scale(1.15); } }
+.tl-card { padding: 1.1rem 1.3rem; border: 3px solid var(--amaranth); border-radius: var(--radius); box-shadow: var(--shadow); display: grid; gap: .35rem; }
+.tl-card h3 { font-family: var(--serif); font-weight: 700; font-style: italic; font-size: 1.3rem; }
+.tl-when { font-size: .85rem; font-weight: 600; }
+.tl-item.hecho .tl-card { opacity: .92; }
+
+/* medicinas */
+.dose-strip { display: flex; gap: .8rem; overflow-x: auto; padding: .3rem 4px 1.2rem; }
+.dose { flex: none; display: grid; gap: .1rem; min-width: 140px; padding: .8rem 1rem; border: 3px solid var(--amaranth); border-radius: var(--radius); box-shadow: var(--shadow-sm); }
+.dose-h { font-family: var(--serif); font-size: 1.6rem; line-height: 1; }
+.med-grid { display: grid; gap: 1.6rem; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); margin-top: 1rem; }
+.med { background: var(--chalk); display: grid; gap: .7rem; align-content: start; }
+.med-top { display: flex; gap: .8rem; align-items: center; }
+.med-top h3 { font-family: var(--serif); font-weight: 700; font-style: italic; font-size: 1.35rem; }
+.pill-ico { display: grid; place-items: center; width: 56px; height: 56px; border: 3px solid var(--amaranth); border-radius: 50%; flex: none; }
+.pill-ico .ico { width: 34px; height: 34px; }
+.hours { display: flex; flex-wrap: wrap; gap: .4rem; }
+.hour { padding: .2rem .7rem; border: 2.5px solid var(--amaranth); border-radius: 8px; background: var(--brook); font-weight: 700; }
+
+/* citas */
+.citas { display: grid; gap: 1.2rem; }
+.cita { display: grid; grid-template-columns: 84px 1fr; gap: 1.1rem; padding: 1.1rem; border: 3px solid var(--amaranth); border-radius: var(--radius); box-shadow: var(--shadow); }
+.cita:nth-child(odd) { transform: rotate(-.5deg); }
+.cita.past { opacity: .75; box-shadow: var(--shadow-sm); }
+.cita-date { display: grid; place-items: center; align-content: center; border: 3px solid var(--amaranth); border-radius: var(--radius); background: var(--chalk); height: 84px; }
+.cd-day { font-family: var(--serif); font-size: 2rem; line-height: 1; }
+.cd-mon { font-weight: 700; text-transform: uppercase; font-size: .85rem; }
+.cita-info { display: grid; gap: .25rem; }
+.cita-info h3 { font-family: var(--serif); font-weight: 700; font-style: italic; font-size: 1.25rem; }
+.cita-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .5rem; }
+.past-box { margin-top: 2rem; }
+.past-box summary { cursor: pointer; font-weight: 700; margin-bottom: 1rem; }
+
+/* expediente */
+.exp-grid { display: grid; gap: 1.4rem; }
+@media (min-width: 820px) { .exp-grid { grid-template-columns: 1.3fr 1fr; } }
+.id-card { background: var(--brook); }
+.id-code { font-family: var(--serif); font-size: clamp(1.4rem, 5vw, 2.2rem); letter-spacing: .04em; margin-bottom: 1rem; }
+.id-card dl { display: grid; grid-template-columns: auto 1fr; gap: .45rem 1rem; margin: 0; }
+.id-card dt { font-weight: 700; }
+.id-card dd { margin: 0; }
+@media (max-width: 480px) { .id-card dl { grid-template-columns: 1fr; gap: 0; } .id-card dd { margin-bottom: .5rem; } }
+.exp-side { display: grid; gap: 1.2rem; align-content: start; }
+.docs { display: grid; gap: .8rem; }
+.doc { border: 3px solid var(--amaranth); border-radius: var(--radius); padding: .9rem 1.1rem; box-shadow: var(--shadow-sm); }
+.doc summary { cursor: pointer; display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+.doc p { margin: .8rem 0; }
+.doc .btn { margin-right: .6rem; }
+
+/* equipo */
+.team { display: grid; gap: 1.4rem; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
+.person { display: grid; gap: .45rem; align-content: start; padding: 1.4rem; border: 3px solid var(--amaranth); border-radius: var(--radius); box-shadow: var(--shadow); }
+.person h3 { font-family: var(--serif); font-weight: 700; font-style: italic; font-size: 1.3rem; }
+.person .btn { justify-self: start; margin-top: .4rem; }
+.avatar { display: grid; place-items: center; width: 64px; height: 64px; border: 3px solid var(--amaranth); border-radius: 50%; background: var(--chalk); font-family: var(--serif); font-size: 1.4rem; }
+.why { padding: .5rem .7rem; border: 2px dashed var(--amaranth); border-radius: var(--radius); background: var(--chalk); }
+
+/* mensajes */
+.thread-box { background: var(--pomelo); padding: 1rem; display: grid; gap: 1rem; }
+.thread { display: grid; gap: .9rem; align-content: start; max-height: 56vh; min-height: 280px; overflow-y: auto; padding: .6rem; }
+.note { max-width: 78%; padding: .8rem 1rem; border: 3px solid var(--amaranth); border-radius: 4px 18px 18px 18px; background: var(--chalk); box-shadow: var(--shadow-sm); transform: rotate(-.6deg); }
+.note.staff { background: var(--brook); }
+.note.mine { justify-self: end; background: var(--amaranth); color: var(--chalk); border-radius: var(--radius) 4px 18px 18px; transform: rotate(.6deg); }
+.note-who { font-weight: 700; font-size: .82rem; margin-bottom: .2rem; }
+.note-who span { font-weight: 500; opacity: .75; margin-left: .3rem; }
+.composer { display: flex; gap: .6rem; }
+.composer input { background: var(--chalk); }
+.composer .btn { flex: none; }
+
+/* sala */
+.sala-box { display: grid; gap: 1rem; padding: 1rem; border: 3px solid var(--amaranth); border-radius: var(--radius); background: var(--pomelo); box-shadow: var(--shadow); }
+.sala-box > .small { color: var(--chalk); opacity: 1; }
+.sala-wall { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 1rem; max-height: 58vh; min-height: 260px; overflow-y: auto; padding: .6rem; align-content: start; }
+.postit { position: relative; display: grid; gap: .4rem; align-content: space-between; min-height: 130px; padding: .9rem; border: 3px solid var(--amaranth); border-radius: 4px; box-shadow: var(--shadow-sm); transform: rotate(var(--rot)); font-weight: 500; }
+.postit.mine { outline: 3px dashed var(--amaranth); outline-offset: 3px; }
+.postit-who { font-size: .75rem; font-weight: 700; }
+.postit .stk { width: 72px; height: 72px; justify-self: center; }
+.postit .del { justify-self: start; font-size: .75rem; }
+.stk { stroke: var(--amaranth); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.stk-row { display: flex; gap: .5rem; flex-wrap: wrap; justify-content: center; }
+.stk-btn { width: 54px; height: 54px; padding: 4px; border: 2.5px solid var(--amaranth); border-radius: 12px; background: var(--chalk); transition: transform .15s; }
+.stk-btn:hover { transform: scale(1.12) rotate(-6deg); }
+.stk-btn .stk { width: 100%; height: 100%; }
+
+/* ánimo */
+.animo-form { background: var(--chalk); max-width: 640px; }
+.animo-form .btn { margin-top: 1.2rem; }
+.animo-form textarea { resize: vertical; }
+.range { -webkit-appearance: none; appearance: none; height: 18px; padding: 0; border-radius: 999px; background: linear-gradient(90deg, var(--brook), var(--pomelo), var(--amaranth)); }
+.range::-webkit-slider-thumb { -webkit-appearance: none; width: 30px; height: 30px; border-radius: 50%; background: var(--amaranth); border: 3px solid var(--chalk); cursor: pointer; }
+.range::-moz-range-thumb { width: 26px; height: 26px; border-radius: 50%; background: var(--amaranth); border: 3px solid var(--chalk); cursor: pointer; }
+.animo-list { display: grid; gap: .7rem; }
+.animo-row { display: grid; grid-template-columns: auto 1fr auto; gap: .9rem; align-items: center; padding: .7rem 1rem; border: 2.5px solid var(--amaranth); border-radius: var(--radius); background: var(--chalk); }
+
+/* panel del personal */
+.staff-grid { display: grid; gap: 1.6rem; }
+@media (min-width: 900px) { .staff-grid { grid-template-columns: 280px 1fr; align-items: start; } .staff-list { position: sticky; top: 100px; } }
+.staff-list { display: grid; gap: .7rem; }
+.pt-btn { display: grid; gap: .1rem; text-align: left; padding: .8rem 1rem; border: 3px solid var(--amaranth); border-radius: var(--radius); box-shadow: var(--shadow-sm); }
+.pt-btn.on { box-shadow: var(--shadow); outline: 3px solid var(--amaranth); outline-offset: 2px; }
+.pt-head { padding: 1.2rem 1.4rem; border: 3px solid var(--amaranth); border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 1.2rem; }
+.pt-head h2 { font-family: var(--serif); font-weight: 700; font-style: italic; font-size: 1.6rem; }
+.staff-tabs { margin-bottom: 1.2rem; }
+
+/* toast */
+.toast { position: fixed; left: 50%; bottom: 24px; z-index: 100; transform: translate(-50%, 140%); padding: .8rem 1.3rem; border: 3px solid var(--amaranth); border-radius: 999px; background: var(--amaranth); color: var(--chalk); font-weight: 600; box-shadow: var(--shadow-sm); transition: transform .3s cubic-bezier(.3, 1.4, .5, 1); max-width: calc(100vw - 32px); text-align: center; }
+.toast.show { transform: translate(-50%, 0); }
+
+@media (max-width: 560px) {
+  .nav-link { padding: .4rem .7rem; font-size: .9rem; }
+  .nav-lupi { display: none; }
+  .note { max-width: 92%; }
+  .cita { grid-template-columns: 64px 1fr; }
+  .cita-date { height: 64px; }
+  .cd-day { font-size: 1.5rem; }
+  .composer { flex-direction: column; }
 }
 
-function showGreeting(nombre) {
-  $("#authHello").textContent = `Hola, ${nombre}`;
-  $("#authForms").hidden = true;
-  $("#authSession").hidden = false;
+@media print {
+  .nav, .tabs, .app-head-right, .btn, .link-btn, .toast { display: none !important; }
+  body { background: none; }
 }
 
-function showAuthForms() {
-  $("#authForms").hidden = false;
-  $("#authSession").hidden = true;
+/* nombres de rol en la pantalla de ingreso */
+.role-name { font-family: var(--serif); font-weight: 700; font-style: italic; font-size: clamp(1.5rem, 5vw, 2.2rem); line-height: 1; }
+.role-card small { text-transform: uppercase; letter-spacing: .2em; font-size: .72rem; }
+.slide .kicker { opacity: .85; }
+.mag-h + .filter, .sec-head .small { align-self: flex-end; }
+.bg-amaranth .tag { color: var(--amaranth); }
+.bg-amaranth .why { color: var(--amaranth); }
+.bg-amaranth .avatar, .bg-amaranth .cita-date, .bg-amaranth .slide-ico { color: var(--amaranth); }
+.bg-amaranth .slide-ico .ico, .bg-chalk .ico, .bg-brook .ico { stroke: var(--amaranth); }
+/* =========================================================
+   CARRUSEL ANIMADO · rumbo al alta
+   ========================================================= */
+.slide { cursor: inherit; min-height: 0; gap: .5rem; }
+.scene { width: 100%; aspect-ratio: 3 / 2; background: var(--chalk); border: 3px solid var(--amaranth); border-radius: var(--radius); overflow: hidden; margin-bottom: .6rem; }
+.scene svg { width: 100%; height: 100%; display: block; }
+.scene * { transform-box: fill-box; }
+.sc-z { font: 700 22px var(--serif); opacity: 0; animation: zz 3s ease-in infinite; }
+.sc-z2 { animation-delay: 1.4s; }
+@keyframes zz { 0% { opacity: 0; transform: translate(0, 10px); } 30% { opacity: 1; } 100% { opacity: 0; transform: translate(14px, -18px); } }
+.sc-drip { animation: drip 1.6s ease-in infinite; }
+@keyframes drip { 0% { transform: translateY(0); opacity: 1; } 80% { opacity: 1; } 100% { transform: translateY(26px); opacity: 0; } }
+.sc-breathe { animation: breathe 3s ease-in-out infinite; transform-origin: center; }
+@keyframes breathe { 50% { transform: translate(88px, 86px) scale(1.04); } 0%, 100% { transform: translate(88px, 88px); } }
+.sc-bob { animation: bob2 2.4s ease-in-out infinite; }
+@keyframes bob2 { 0%, 100% { transform: translate(110px, 86px); } 50% { transform: translate(110px, 78px); } }
+.sc-beat { transform-origin: center; animation: beat 1s ease-in-out infinite; }
+@keyframes beat { 0%, 100% { transform: scale(1); } 15% { transform: scale(1.18); } 30% { transform: scale(.96); } 45% { transform: scale(1.1); } }
+.sc-ecg { stroke-dasharray: 420; stroke-dashoffset: 420; animation: ecg 2.6s linear infinite; }
+@keyframes ecg { 70% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: 0; opacity: 0; } }
+.sc-grow { transform-origin: bottom; animation: grow 5s ease-out infinite; }
+.sc-g2 { animation-delay: .25s; } .sc-g3 { animation-delay: .5s; } .sc-g4 { animation-delay: .75s; }
+@keyframes grow { 0% { transform: scaleY(0); } 20%, 90% { transform: scaleY(1); } 100% { transform: scaleY(0); } }
+.sc-climb { animation: climb 5s ease-in-out infinite; }
+@keyframes climb {
+  0%, 18% { transform: translate(62px, 122px); }
+  34% { transform: translate(114px, 96px); }
+  50% { transform: translate(166px, 70px); }
+  66%, 90% { transform: translate(218px, 40px); }
+  100% { transform: translate(62px, 122px); }
 }
-
-// Lee el nombre desde "perfiles". Si la fila no existe (registro con
-// confirmación de correo activada), la crea con el nombre del registro.
-async function loadProfileName(user) {
-  const { data, error } = await sb.from("perfiles").select("nombre").eq("id", user.id).maybeSingle();
-  if (error) throw error;
-  if (data) return data.nombre;
-  const nombre = user.user_metadata && user.user_metadata.nombre;
-  if (!nombre) return user.email;
-  const { error: insertError } = await sb.from("perfiles").insert({ id: user.id, nombre });
-  if (insertError) throw insertError;
-  return nombre;
+.sc-arrow { animation: arrow 1.2s ease-in-out infinite; }
+@keyframes arrow { 50% { transform: translateY(-6px); } }
+.sc-walk { animation: walk 5s ease-in-out infinite; }
+@keyframes walk {
+  0% { transform: translate(40px, 148px); opacity: 1; }
+  10% { transform: translate(64px, 132px); } 20% { transform: translate(88px, 148px); }
+  30% { transform: translate(112px, 132px); } 40% { transform: translate(136px, 148px); }
+  50% { transform: translate(160px, 132px); } 60% { transform: translate(184px, 148px); }
+  70% { transform: translate(230px, 148px); opacity: 1; }
+  78%, 100% { transform: translate(230px, 148px); opacity: 0; }
 }
-
-// Registro
-$("#authSignupForm").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const form = e.target;
-  const err = $("#authSignupError");
-  const info = $("#authSignupInfo");
-  err.textContent = "";
-  info.hidden = true;
-  if (!sb) { err.textContent = "No se pudo conectar con el servidor. Recarga la página."; return; }
-
-  const nombre = form.elements.nombre.value.trim();
-  const email = form.elements.email.value.trim();
-  const password = form.elements.password.value;
-  if (!nombre) { err.textContent = "Escribe tu nombre."; return; }
-  if (password.length < 6) { err.textContent = "La contraseña debe tener al menos 6 caracteres."; return; }
-
-  const btn = $("button[type=submit]", form);
-  btn.disabled = true;
-  try {
-    const { data, error } = await sb.auth.signUp({ email, password, options: { data: { nombre } } });
-    if (error) { err.textContent = authMessage(error); return; }
-
-    // Con confirmación de correo activada, Supabase no da error si el correo ya existe:
-    // devuelve un usuario sin identidades.
-    if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
-      err.textContent = "Ese correo ya está registrado. Inicia sesión.";
-      return;
-    }
-
-    // Sin sesión = hay que confirmar el correo; la fila de perfiles se crea al iniciar sesión.
-    if (!data.session) {
-      info.textContent = "Te enviamos un correo para confirmar tu cuenta. Después, inicia sesión aquí.";
-      info.hidden = false;
-      form.reset();
-      return;
-    }
-
-    const { error: insertError } = await sb.from("perfiles").insert({ id: data.user.id, nombre });
-    if (insertError) { err.textContent = "Tu cuenta se creó, pero no pudimos guardar tu nombre: " + insertError.message; return; }
-
-    form.reset();
-    showGreeting(nombre);
-  } catch (ex) {
-    err.textContent = authMessage(ex);
-  } finally {
-    btn.disabled = false;
-  }
-});
-
-// Inicio de sesión
-$("#authLoginForm").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const form = e.target;
-  const err = $("#authLoginError");
-  err.textContent = "";
-  if (!sb) { err.textContent = "No se pudo conectar con el servidor. Recarga la página."; return; }
-
-  const email = form.elements.email.value.trim();
-  const password = form.elements.password.value;
-  if (!email || !password) { err.textContent = "Escribe tu correo y tu contraseña."; return; }
-
-  const btn = $("button[type=submit]", form);
-  btn.disabled = true;
-  try {
-    const { data, error } = await sb.auth.signInWithPassword({ email, password });
-    if (error) { err.textContent = authMessage(error); return; }
-    const nombre = await loadProfileName(data.user);
-    form.reset();
-    showGreeting(nombre);
-  } catch (ex) {
-    err.textContent = authMessage(ex);
-  } finally {
-    btn.disabled = false;
-  }
-});
-
-// Cerrar sesión
-$("#authLogout").addEventListener("click", async () => {
-  if (sb) await sb.auth.signOut();
-  showAuthForms();
-});
-
-// Al recargar: si hay sesión guardada, mostrar el saludo
-(async () => {
-  if (!sb) return;
-  const { data } = await sb.auth.getSession();
-  if (!data.session) return;
-  try {
-    const nombre = await loadProfileName(data.session.user);
-    showGreeting(nombre);
-    switchRole("account");
-    $("#accountPane").hidden = false;
-  } catch (_) {
-    showAuthForms();
-  }
-})();
+.sc-door { transform-origin: left; animation: door 5s ease-in-out infinite; }
+@keyframes door { 0%, 50% { transform: scaleX(1); } 62%, 88% { transform: scaleX(.12); } 100% { transform: scaleX(1); } }
+.sc-confetti { animation: confetti 2.8s linear infinite; transform-origin: center; }
+@keyframes confetti { 0% { transform: translateY(0) rotate(0); } 100% { transform: translateY(215px) rotate(540deg); } }
+@media (prefers-reduced-motion: reduce) { .scene * { animation: none !important; } }
