@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>well well</title>
   <meta name="description" content="Tu proceso médico, a la vista: línea del tiempo, medicinas, citas, expediente y un asistente que explica todo en palabras sencillas." />
-  <meta name="theme-color" content="#E3D6BF" />
+  <meta name="theme-color" content="#E0FAFF" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Alfa+Slab+One&family=Bebas+Neue&family=Bowlby+One&family=Bungee&family=Rubik+Mono+One&family=Shrikhand&family=Ultra&family=Fraunces:opsz,wght@9..144,600&display=swap" rel="stylesheet" />
@@ -15,7 +15,6 @@
 
   <!-- ================= BARRA DE NAVEGACIÓN ================= -->
   <header class="nav">
-    <a href="#/" class="logo" aria-label="well well, inicio"><span data-cut="well well" data-seed="7"></span></a>
     <nav class="nav-links">
       <a href="#/asistente" class="nav-link" data-nav="asistente">
         <span class="nav-lupi" aria-hidden="true"></span>Asistente
@@ -40,14 +39,15 @@
         </div>
       </div>
 
-      <div class="marquee" aria-hidden="true">
-        <div class="marquee-track" id="marqueeTrack"></div>
+      <div class="marquee" id="avisosBand" aria-label="Avisos del hospital" hidden>
+        <span class="mq-label">Avisos del hospital</span>
+        <div class="mq-viewport"><div class="marquee-track" id="marqueeTrack"></div></div>
       </div>
 
       <!-- Carrusel -->
       <div class="carousel-wrap">
         <div class="section-head">
-          <div><p class="kicker">N.º 01 · paso a paso</p><h2 class="mag-h">Rumbo al alta</h2></div>
+          <div><h2 class="mag-h">Rumbo al alta</h2></div>
           <div class="carousel-ctrl">
             <button class="round-btn" id="carPrev" aria-label="Anterior">&larr;</button>
             <button class="round-btn" id="carNext" aria-label="Siguiente">&rarr;</button>
@@ -59,7 +59,7 @@
 
       <!-- Desplegables -->
       <div class="fold-wrap">
-        <p class="kicker">N.º 02 · accesos</p><h2 class="mag-h">¿Quién eres?</h2>
+        <h2 class="mag-h">¿Quién eres?</h2>
         <div class="folds" id="folds"></div>
       </div>
 
@@ -117,7 +117,7 @@
           </button>
           <button type="button" class="role-card" data-role="personal" role="tab" aria-selected="false">
             <span class="role-name">Personal</span>
-            <small>médico</small>
+            <small>de apoyo</small>
           </button>
         </div>
 
@@ -168,6 +168,14 @@
       </div>
     </section>
   </main>
+
+  <dialog class="doc-dialog" id="docDialog">
+    <div id="docDialogBody"></div>
+    <div class="doc-dialog-actions">
+      <button type="button" class="btn btn-ink" id="docDialogDownload">Descargar</button>
+      <button type="button" class="btn btn-ghost" id="docDialogClose">Cerrar</button>
+    </div>
+  </dialog>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
