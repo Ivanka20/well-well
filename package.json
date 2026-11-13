@@ -1,0 +1,9 @@
+{
+  "name": "well-well",
+  "private": true,
+  "type": "module",
+  "description": "well well: tu proceso médico, a la vista",
+  "dependencies": {
+    "@anthropic-ai/sdk": "latest"
+  }
+}
